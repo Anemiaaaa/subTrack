@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">subTracker</string>
+
+
+    <!-- ... твои другие строки ... -->
+
+    <string-array name="periodicity_options">
+        <item>Каждый день</item>
+        <item>Каждую неделю</item>
+        <item>Каждый месяц</item>
+        <item>Каждый квартал</item>
+        <item>Каждый год</item>
+    </string-array>
+
+    <string-array name="icon_options">
+        <item>Netflix</item>
+        <item>YouTube</item>
+        <item>Spotify</item>
+        <item>Google One</item>
+        <item>Amazon Prime</item>
+        <item>Disney+</item>
+        <item>VK Music</item>
+        <item>Custom (векторная)</item>
+    </string-array>
+
+
+</resources>

@@ -1,0 +1,10 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Основная тема AppCompat -->
+    <style name="Theme.SubTracker" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/blue</item>
+        <item name="colorPrimaryDark">@color/black</item>
+        <item name="colorAccent">@color/blue</item>
+        <item name="android:fontFamily">@font/jura_regular</item>
+    </style>
+</resources>
