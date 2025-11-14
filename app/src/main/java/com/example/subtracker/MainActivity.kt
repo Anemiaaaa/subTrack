@@ -45,30 +45,47 @@ class MainActivity : AppCompatActivity() {
             }
 
             lifecycleScope.launch(Dispatchers.IO) {
-                val familyMembers = userDao.getUsersByFamilyCode(familyCode)
+                val user = userDao.getUserByUsername(username)
 
-                if (familyMembers.isEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "Семья с таким кодом не найдена", Toast.LENGTH_SHORT).show()
+                if (user != null) {
+                    // Пользователь уже существует
+                    if (user.familyCode != familyCode) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Пользователь $username уже находится в другой семье",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                        return@launch
                     }
-                    return@launch
-                }
+                } else {
+                    // Новый пользователь, проверяем существует ли семья
+                    val familyMembers = userDao.getUsersByFamilyCode(familyCode)
 
-                // Проверяем есть ли пользователь с этим username
-                var user = userDao.getUserByUsername(username)
-                if (user == null) {
-                    // Автоматически регистрируем нового пользователя в этой семье
-                    user = UserEntity(
+                    if (familyMembers.isEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Семья с таким кодом не найдена",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                        return@launch
+                    }
+
+                    // Автоматическая регистрация нового пользователя
+                    val newUser = UserEntity(
                         username = username,
                         familyName = familyMembers.first().familyName,
                         familyCode = familyCode,
-                        isAdmin = false // обычный член семьи
+                        isAdmin = false
                     )
-                    userDao.insertUser(user)
+                    userDao.insertUser(newUser)
                 }
 
+                // Переход на главный экран
                 withContext(Dispatchers.Main) {
-                    // Переходим на главный экран приложения
                     val intent = Intent(this@MainActivity, MainFrameActivity::class.java)
                     intent.putExtra("username", username)
                     intent.putExtra("familyCode", familyCode)
@@ -77,5 +94,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
     }
 }
