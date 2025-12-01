@@ -24,16 +24,21 @@ class MainFrameActivity : AppCompatActivity() {
     private lateinit var familyCode: String
     private lateinit var username: String
 
-    // ---- ФЛАГИ ФИЛЬТРОВ/СОРТИРОВОК ----
-    private var sortByPriceAsc = true
-    private var sortByDateAsc = true
+    // ---- Сортировка / фильтры ----
+    private enum class SortMode { NONE, PRICE, DATE }
+    private var sortMode = SortMode.NONE
+    private var sortAsc = true
+
     private var filterByUserEnabled = false
     private var filterUsername: String? = null
 
-    // Фильтр-кнопки
+    // Фильтр-кнопки (в layout должны быть TextView / Button с такими id)
     private lateinit var btnSortPrice: TextView
     private lateinit var btnSortDate: TextView
     private lateinit var btnFilterUsers: TextView
+
+    // Формат даты: показываем день, месяц и год
+    private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,7 +77,6 @@ class MainFrameActivity : AppCompatActivity() {
         loadSubscriptions()
     }
 
-    // ------------------------- ЛОГИКА ФИЛЬТРОВ -------------------------
     private fun setupFilterButtons() {
         val db = Room.databaseBuilder(
             applicationContext,
@@ -90,21 +94,30 @@ class MainFrameActivity : AppCompatActivity() {
                 btnFilterUsers.visibility =
                     if (currentUser?.isAdmin == true) View.VISIBLE else View.GONE
 
-                // ---- Цена ----
+                // ----- Сортировка (вариант C) -----
                 btnSortPrice.setOnClickListener {
-                    sortByPriceAsc = !sortByPriceAsc
+                    if (sortMode == SortMode.PRICE) {
+                        sortAsc = !sortAsc
+                    } else {
+                        sortMode = SortMode.PRICE
+                        sortAsc = true
+                    }
                     updateButtonsUI()
                     loadSubscriptions()
                 }
 
-                // ---- Дата ----
                 btnSortDate.setOnClickListener {
-                    sortByDateAsc = !sortByDateAsc
+                    if (sortMode == SortMode.DATE) {
+                        sortAsc = !sortAsc
+                    } else {
+                        sortMode = SortMode.DATE
+                        sortAsc = true
+                    }
                     updateButtonsUI()
                     loadSubscriptions()
                 }
 
-                // ---- Пользователи (диалог выбора) ----
+                // Пользователи (диалог выбора)
                 btnFilterUsers.setOnClickListener {
                     if (familyMembers.isEmpty()) return@setOnClickListener
 
@@ -136,21 +149,25 @@ class MainFrameActivity : AppCompatActivity() {
         }
     }
 
-    // Подсветка кнопок
     private fun updateButtonsUI() {
         btnSortPrice.apply {
-            setBackgroundResource(if (sortByPriceAsc) R.drawable.chip_bg_active else R.drawable.chip_bg)
-            setTextColor(if (sortByPriceAsc) Color.WHITE else Color.BLACK)
+            val active = sortMode == SortMode.PRICE
+            setBackgroundResource(if (active) R.drawable.chip_bg_active else R.drawable.chip_bg)
+            setTextColor(if (active) Color.WHITE else Color.BLACK)
+            text = "Цена" + if (active) (if (sortAsc) " ↑" else " ↓") else ""
         }
 
         btnSortDate.apply {
-            setBackgroundResource(if (sortByDateAsc) R.drawable.chip_bg_active else R.drawable.chip_bg)
-            setTextColor(if (sortByDateAsc) Color.WHITE else Color.BLACK)
+            val active = sortMode == SortMode.DATE
+            setBackgroundResource(if (active) R.drawable.chip_bg_active else R.drawable.chip_bg)
+            setTextColor(if (active) Color.WHITE else Color.BLACK)
+            text = "Дата" + if (active) (if (sortAsc) " ↑" else " ↓") else ""
         }
 
         btnFilterUsers.apply {
             setBackgroundResource(if (filterByUserEnabled) R.drawable.chip_bg_active else R.drawable.chip_bg)
             setTextColor(if (filterByUserEnabled) Color.WHITE else Color.BLACK)
+            text = if (filterByUserEnabled) "Семья (фильтр ON)" else "Семья"
         }
     }
 
@@ -182,11 +199,12 @@ class MainFrameActivity : AppCompatActivity() {
                 }
             }
 
-            // ---- СОРТИРОВКА ----
-            val sorted = filtered.sortedWith(compareBy(
-                { if (sortByPriceAsc) it.price else -it.price },
-                { if (sortByDateAsc) it.nextPaymentDate else -it.nextPaymentDate }
-            ))
+            // ---- СОРТИРОВКА (вариант C: только одна активна) ----
+            val sorted = when (sortMode) {
+                SortMode.PRICE -> if (sortAsc) filtered.sortedBy { it.price } else filtered.sortedByDescending { it.price }
+                SortMode.DATE -> if (sortAsc) filtered.sortedBy { it.nextPaymentDate } else filtered.sortedByDescending { it.nextPaymentDate }
+                SortMode.NONE -> filtered
+            }
 
             withContext(Dispatchers.Main) {
                 subscriptionsContainer.removeAllViews()
@@ -220,14 +238,185 @@ class MainFrameActivity : AppCompatActivity() {
         iconImage.setImageResource(if (iconId != 0) iconId else R.drawable.ic_default)
 
         nameText.text = sub.name
-        ownerText.text =
-            if (sub.ownerUsername == username) "Для: вы" else "Для: ${sub.ownerUsername}"
+        ownerText.text = if (sub.ownerUsername == username) "Для: вы" else "Для: ${sub.ownerUsername}"
 
-        val sdf = SimpleDateFormat("dd.MM", Locale.getDefault())
-        dateText.text = sdf.format(Date(sub.nextPaymentDate))
+        // Показываем именно дату следующего платежа в формате dd.MM.yyyy
+        dateText.text = dateFormat.format(Date(sub.nextPaymentDate))
         priceText.text = "${sub.price}₽"
 
+        // Клик на карточке — показываем меню действий
+        card.setOnClickListener {
+            showSubscriptionActionsDialog(sub)
+        }
+
         return card
+    }
+
+    // -------------------- ДИАЛОГ ДЕЙСТВИЙ С ПОДПИСКОЙ --------------------
+    private fun showSubscriptionActionsDialog(sub: SubscriptionEntity) {
+        val items = arrayOf("Редактировать", "Оплатить", "Удалить")
+        AlertDialog.Builder(this)
+            .setTitle(sub.name)
+            .setItems(items) { dialog, which ->
+                when (which) {
+                    0 -> showEditSubscriptionDialog(sub)
+                    1 -> paySubscription(sub)
+                    2 -> deleteSubscription(sub)
+                }
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    // ---- Редактирование (используем layout activity_add_subscription для формы) ----
+    private fun showEditSubscriptionDialog(sub: SubscriptionEntity) {
+        val dialogView = layoutInflater.inflate(R.layout.activity_add_subscription, null)
+        val nameInput = dialogView.findViewById<EditText>(R.id.editTextName)
+        val priceInput = dialogView.findViewById<EditText>(R.id.editTextPrice)
+        val periodSpinner = dialogView.findViewById<Spinner>(R.id.spinnerPeriodicity)
+        val iconSpinner = dialogView.findViewById<Spinner>(R.id.spinnerIcon)
+
+        // Предзаполняем
+        nameInput.setText(sub.name)
+        priceInput.setText(sub.price.toString())
+
+        // Попытка выставить позицию spinner'ов (если в resources есть такие строки)
+        try {
+            val periodAdapter = periodSpinner.adapter
+            for (i in 0 until (periodAdapter?.count ?: 0)) {
+                if ((periodAdapter?.getItem(i) as? String) == sub.periodicity) {
+                    periodSpinner.setSelection(i)
+                    break
+                }
+            }
+            val iconAdapter = iconSpinner.adapter
+            for (i in 0 until (iconAdapter?.count ?: 0)) {
+                if ((iconAdapter?.getItem(i) as? String)?.let { mapIconNameToChoice(sub.iconResName) == it } == true) {
+                    iconSpinner.setSelection(i)
+                    break
+                }
+            }
+        } catch (_: Exception) {
+            // Игнорируем — если адаптеры отличны, оставляем default
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Редактировать подписку")
+            .setView(dialogView)
+            .setPositiveButton("Сохранить") { dialog, _ ->
+                val newName = nameInput.text.toString().trim().ifEmpty { sub.name }
+                val newPrice = priceInput.text.toString().toDoubleOrNull() ?: sub.price
+                val newPeriod = periodSpinner.selectedItem?.toString() ?: sub.periodicity
+                val newIconChoice = iconSpinner.selectedItem?.toString()
+                val newIconResName = when (newIconChoice) {
+                    "Netflix" -> "netflix"
+                    "YouTube" -> "youtube"
+                    "Spotify" -> "spotify"
+                    "Google One" -> "google_one"
+                    "Amazon Prime" -> "amazon_prime"
+                    "Disney+" -> "disney"
+                    "VK Music" -> "vk_music"
+                    else -> sub.iconResName
+                }
+
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val db = Room.databaseBuilder(
+                        applicationContext,
+                        AppDatabase::class.java,
+                        "subtrack-db"
+                    ).build()
+                    val subscriptionDao = db.subscriptionDao()
+
+                    // Удаляем старую и вставляем новую запись с тем же id (Room с @Insert autoGenerate may ignore id,
+                    // но такой подход работал в проекте — если хочешь стабильное обновление, добавь @Update в DAO)
+                    subscriptionDao.delete(sub)
+                    val updated = SubscriptionEntity(
+                        id = sub.id,
+                        familyCode = sub.familyCode,
+                        name = newName,
+                        price = newPrice,
+                        periodicity = newPeriod,
+                        iconResName = newIconResName,
+                        ownerUsername = sub.ownerUsername,
+                        nextPaymentDate = sub.nextPaymentDate // не меняем дату при редактировании
+                    )
+                    subscriptionDao.insert(updated)
+
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainFrameActivity, "Подписка обновлена", Toast.LENGTH_SHORT).show()
+                        loadSubscriptions()
+                    }
+                }
+
+                dialog.dismiss()
+            }
+            .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
+            .show()
+    }
+
+    // ---- Оплатить: переносим nextPaymentDate на следующий период (учитываем период подписки) ----
+    private fun normalizePeriodicity(raw: String): String {
+        return raw.trim().lowercase(Locale.getDefault()).replace("ё", "е")
+    }
+
+    private fun paySubscription(sub: SubscriptionEntity) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "subtrack-db").build()
+            val subscriptionDao = db.subscriptionDao()
+
+            val baseTime = if (sub.nextPaymentDate > System.currentTimeMillis()) sub.nextPaymentDate else System.currentTimeMillis()
+            val cal = Calendar.getInstance().apply { timeInMillis = baseTime }
+
+            val period = normalizePeriodicity(sub.periodicity)
+
+            when {
+                period.contains("день") || period.contains("day") -> cal.add(Calendar.DAY_OF_YEAR, 1)
+                period.contains("недел") || period.contains("week") -> cal.add(Calendar.WEEK_OF_YEAR, 1)
+                period.contains("месяц") || period.contains("month") -> cal.add(Calendar.MONTH, 1)
+                period.contains("кварт") || period.contains("quarter") -> cal.add(Calendar.MONTH, 3)
+                period.contains("год") || period.contains("year") -> cal.add(Calendar.YEAR, 1)
+                else -> cal.add(Calendar.MONTH, 1)
+            }
+
+            val newDate = cal.timeInMillis
+
+            // LOG (чтобы проверить что сохраняется)
+            android.util.Log.d("PAY", "sub.id=${sub.id} periodicity='${sub.periodicity}' normalized='$period' base=${Date(baseTime)} -> new=${Date(newDate)}")
+
+            // обновляем запись (лучше использовать @Update — ниже добавлю изменение DAO)
+            subscriptionDao.delete(sub)
+            subscriptionDao.insert(sub.copy(nextPaymentDate = newDate))
+
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@MainFrameActivity, "Оплата проведена — дата обновлена", Toast.LENGTH_SHORT).show()
+                loadSubscriptions()
+            }
+        }
+    }
+
+    // ---- Удалить подписку ----
+    private fun deleteSubscription(sub: SubscriptionEntity) {
+        AlertDialog.Builder(this)
+            .setTitle("Удалить подписку?")
+            .setMessage("Подтвердите удаление подписки \"${sub.name}\"")
+            .setPositiveButton("Удалить") { dialog, _ ->
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val db = Room.databaseBuilder(
+                        applicationContext,
+                        AppDatabase::class.java,
+                        "subtrack-db"
+                    ).build()
+                    val subscriptionDao = db.subscriptionDao()
+                    subscriptionDao.delete(sub)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@MainFrameActivity, "Подписка удалена", Toast.LENGTH_SHORT).show()
+                        loadSubscriptions()
+                    }
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
+            .show()
     }
 
     // -------------------- ОКНО СЕМЬИ --------------------
@@ -330,6 +519,20 @@ class MainFrameActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    // ---------- Утилиты ----------
+    private fun mapIconNameToChoice(iconResName: String): String {
+        return when (iconResName) {
+            "netflix" -> "Netflix"
+            "youtube" -> "YouTube"
+            "spotify" -> "Spotify"
+            "google_one" -> "Google One"
+            "amazon_prime" -> "Amazon Prime"
+            "disney" -> "Disney+"
+            "vk_music" -> "VK Music"
+            else -> "ic_default"
         }
     }
 }
