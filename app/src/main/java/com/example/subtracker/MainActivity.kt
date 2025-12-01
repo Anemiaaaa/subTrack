@@ -17,6 +17,8 @@ class MainActivity : AppCompatActivity() {
 
         val db = Room.databaseBuilder(
             applicationContext,
+
+
             AppDatabase::class.java,
             "subtrack-db"
         )
@@ -24,6 +26,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         val userDao = db.userDao()
+
 
         val usernameInput = findViewById<EditText>(R.id.editTextLogin)
         val familyCodeInput = findViewById<EditText>(R.id.editTextPassword)
@@ -98,4 +101,5 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-// CCQZJL
+// CCQZJL это для семьи
+
