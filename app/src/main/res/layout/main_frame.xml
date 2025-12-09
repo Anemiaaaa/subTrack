@@ -98,7 +98,7 @@
         android:layout_below="@id/filterSortContainer"
         android:layout_marginTop="12dp"
         android:layout_centerHorizontal="true"
-        android:background="@drawable/subrestangle">
+        android:background="@drawable/subrestangle_dark">
 
         <ScrollView
             android:layout_width="match_parent"
@@ -115,6 +115,7 @@
                 android:showDividers="middle" />
         </ScrollView>
     </FrameLayout>
+
 
     <!-- Нижняя панель -->
     <RelativeLayout

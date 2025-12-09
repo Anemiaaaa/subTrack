@@ -1,42 +1,136 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp">
+    android:background="#ECECEC">
 
-    <EditText
-        android:id="@+id/editTextName"
-        android:hint="Название подписки"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+    <!-- 🔹 Тёмно-серый контейнер как на главном экране -->
+    <FrameLayout
+        android:id="@+id/add_container"
+        android:layout_width="368dp"
+        android:layout_height="480dp"
+        android:layout_marginTop="80dp"
+        android:layout_centerHorizontal="true"
+        android:background="@drawable/subrestangle_dark">
 
-    <EditText
-        android:id="@+id/editTextPrice"
-        android:hint="Стоимость"
-        android:inputType="numberDecimal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="457dp"
+            android:padding="20dp">
 
-    <!-- 🔹 Периодичность -->
-    <Spinner
-        android:id="@+id/spinnerPeriodicity"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:entries="@array/periodicity_options"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
-    <!-- 🔹 Иконка -->
-    <Spinner
-        android:id="@+id/spinnerIcon"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:entries="@array/icon_options"/>
+                <EditText
+                    android:id="@+id/editTextName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:hint="Название подписки"
+                    android:textColor="#000000"
+                    android:textSize="16sp" />
 
-    <Button
-        android:id="@+id/buttonSave"
-        android:text="Сохранить"
-        android:layout_marginTop="16dp"
+                <EditText
+                    android:id="@+id/editTextPrice"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:hint="Стоимость"
+                    android:inputType="numberDecimal"
+                    android:textColor="#000000"
+                    android:textSize="16sp" />
+
+                <Spinner
+                    android:id="@+id/spinnerPeriodicity"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:entries="@array/periodicity_options" />
+
+                <Spinner
+                    android:id="@+id/spinnerIcon"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
+                    android:entries="@array/icon_options" />
+
+                <!-- ТЕМНАЯ КНОПКА -->
+                <Button
+                    android:id="@+id/buttonSave"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/button_dark"
+                    android:text="Сохранить"
+                    android:textColor="#FFFFFF"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </ScrollView>
+    </FrameLayout>
+
+
+    <!-- НИЖНЯЯ ПАНЕЛЬ  -->
+    <RelativeLayout
+        android:id="@+id/nav_bar_container"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-</LinearLayout>
+        android:layout_height="80dp"
+        android:layout_alignParentBottom="true"
+        android:background="@drawable/rectangle"
+        android:elevation="8dp">
+
+        <LinearLayout
+            android:id="@+id/bottom_nav"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:weightSum="4"
+            android:padding="12dp">
+
+            <ImageButton
+                android:id="@+id/nav_home"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:src="@drawable/home"
+                android:contentDescription="Дом"/>
+
+            <ImageButton
+                android:id="@+id/nav_calendar"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:src="@drawable/calendar"
+                android:contentDescription="Календарь"/>
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent">
+
+                <ImageView
+                    android:id="@+id/nav_stats"
+                    android:layout_width="71dp"
+                    android:layout_height="56dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/grafic"
+                    android:scaleType="centerCrop"
+                    android:contentDescription="Статистика"/>
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/nav_add"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@android:color/transparent"
+                android:src="@drawable/plus"
+                android:contentDescription="Добавить подписку"/>
+        </LinearLayout>
+    </RelativeLayout>
+
+</RelativeLayout>

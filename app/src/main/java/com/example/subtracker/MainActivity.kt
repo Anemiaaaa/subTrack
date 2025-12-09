@@ -17,8 +17,6 @@ class MainActivity : AppCompatActivity() {
 
         val db = Room.databaseBuilder(
             applicationContext,
-
-
             AppDatabase::class.java,
             "subtrack-db"
         )
@@ -27,11 +25,31 @@ class MainActivity : AppCompatActivity() {
 
         val userDao = db.userDao()
 
-
         val usernameInput = findViewById<EditText>(R.id.editTextLogin)
         val familyCodeInput = findViewById<EditText>(R.id.editTextPassword)
         val loginButton = findViewById<Button>(R.id.buttonLogin)
         val buttonCreateFamily = findViewById<Button>(R.id.buttonCreateFamily)
+
+        val prefs = getSharedPreferences("subtracker_prefs", MODE_PRIVATE)
+
+        // === Проверяем последнего пользователя для авто-логина ===
+        val lastUsername = prefs.getString("lastUsername", null)
+        val lastFamilyCode = prefs.getString("lastFamilyCode", null)
+
+        if (!lastUsername.isNullOrEmpty() && !lastFamilyCode.isNullOrEmpty()) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val user = userDao.getUserByUsername(lastUsername)
+                if (user != null && user.familyCode == lastFamilyCode) {
+                    withContext(Dispatchers.Main) {
+                        val intent = Intent(this@MainActivity, MainFrameActivity::class.java)
+                        intent.putExtra("username", lastUsername)
+                        intent.putExtra("familyCode", lastFamilyCode)
+                        startActivity(intent)
+                        finish()
+                    }
+                }
+            }
+        }
 
         // Переход на регистрацию новой семьи
         buttonCreateFamily.setOnClickListener {
@@ -65,7 +83,6 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     // Новый пользователь, проверяем существует ли семья
                     val familyMembers = userDao.getUsersByFamilyCode(familyCode)
-
                     if (familyMembers.isEmpty()) {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(
@@ -87,6 +104,12 @@ class MainActivity : AppCompatActivity() {
                     userDao.insertUser(newUser)
                 }
 
+                // === Сохраняем пользователя для следующего авто-логина ===
+                prefs.edit()
+                    .putString("lastUsername", username)
+                    .putString("lastFamilyCode", familyCode)
+                    .apply()
+
                 // Переход на главный экран
                 withContext(Dispatchers.Main) {
                     val intent = Intent(this@MainActivity, MainFrameActivity::class.java)
@@ -97,9 +120,5 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
     }
 }
-
-// CCQZJL это для семьи
-

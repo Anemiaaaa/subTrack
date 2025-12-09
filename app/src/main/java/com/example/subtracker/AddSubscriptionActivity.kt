@@ -1,5 +1,6 @@
 package com.example.subtracker
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
@@ -30,14 +31,26 @@ class AddSubscriptionActivity : AppCompatActivity() {
         val iconSpinner = findViewById<Spinner>(R.id.spinnerIcon)
         val buttonSave = findViewById<Button>(R.id.buttonSave)
 
+        // 🔥 нижняя навигация
+        val navHome = findViewById<ImageButton>(R.id.nav_home)
+        val navCalendar = findViewById<ImageButton>(R.id.nav_calendar)
+        val navAdd = findViewById<ImageButton>(R.id.nav_add)
+        val navStats = findViewById<ImageView>(R.id.nav_stats)
+
         val familyCode = intent.getStringExtra("familyCode") ?: return
         val username = intent.getStringExtra("username") ?: "—"
 
+        // ✔️ переход на главный экран по нажатию на "домик"
+        navHome.setOnClickListener {
+            finish()   // просто возвращаемся назад
+        }
+
         buttonSave.setOnClickListener {
             val name = nameInput.text.toString().trim()
-            val price = priceInput.text.toString().toDoubleOrNull() ?: 0.0
+            val price = priceInput.text.toString().toDoubleOrNull() ?: 0.0   
             val periodicity = periodicitySpinner.selectedItem.toString()
             val iconChoice = iconSpinner.selectedItem.toString()
+
             val iconName = when (iconChoice) {
                 "Netflix" -> "netflix"
                 "YouTube" -> "youtube"
@@ -65,7 +78,7 @@ class AddSubscriptionActivity : AppCompatActivity() {
                     periodicity = periodicity,
                     iconResName = iconName,
                     ownerUsername = username,
-                    nextPaymentDate = nextPaymentDate   // <- добавлено
+                    nextPaymentDate = nextPaymentDate
                 )
                 subscriptionDao.insert(sub)
 
@@ -77,10 +90,10 @@ class AddSubscriptionActivity : AppCompatActivity() {
         }
     }
 
-    // Функция для вычисления следующей даты платежа
+    // Функция вычисления следующей даты платежа
     private fun calculateNextPaymentDate(periodicity: String): Long {
         val calendar = Calendar.getInstance()
-        when (periodicity) {
+        when (periodicity.lowercase()) {
             "день" -> calendar.add(Calendar.DAY_OF_YEAR, 1)
             "неделя" -> calendar.add(Calendar.WEEK_OF_YEAR, 1)
             "месяц" -> calendar.add(Calendar.MONTH, 1)
@@ -90,3 +103,5 @@ class AddSubscriptionActivity : AppCompatActivity() {
         return calendar.timeInMillis
     }
 }
+
+// YW13GT amirka

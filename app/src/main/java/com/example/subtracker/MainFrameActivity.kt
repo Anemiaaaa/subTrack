@@ -150,6 +150,8 @@ class MainFrameActivity : AppCompatActivity() {
     }
 
     private fun updateButtonsUI() {
+
+
         btnSortPrice.apply {
             val active = sortMode == SortMode.PRICE
             setBackgroundResource(if (active) R.drawable.chip_bg_active else R.drawable.chip_bg)
@@ -442,6 +444,9 @@ class MainFrameActivity : AppCompatActivity() {
                 val closeBtn = dialogView.findViewById<Button>(R.id.btnCloseDialog)
                 val leaveBtn = dialogView.findViewById<Button>(R.id.leaveFamilyButton)
 
+                // Новая кнопка выхода из аккаунта
+                val logoutBtn = dialogView.findViewById<Button>(R.id.logoutButton)
+
                 familyNameText.text = "Семья: $familyNameValue"
                 familyCodeText.text = "Код семьи: $familyCode"
 
@@ -496,31 +501,58 @@ class MainFrameActivity : AppCompatActivity() {
 
                 closeBtn.setOnClickListener { dialog.dismiss() }
 
+                // Кнопка покинуть семью
                 leaveBtn.setOnClickListener {
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        currentUser?.let { user ->
-                            if (user.isAdmin) {
-                                val others = familyMembers.filter { it.username != user.username }
-                                if (others.isNotEmpty()) {
-                                    val newHead = others.random()
-                                    userDao.updateUser(newHead.copy(isAdmin = true))
+                    // Показываем подтверждение перед выходом из семьи
+                    AlertDialog.Builder(this@MainFrameActivity)
+                        .setTitle("Подтверждение")
+                        .setMessage("Вы уверены, что хотите покинуть семью?")
+                        .setPositiveButton("Да") { dialog, _ ->
+                            lifecycleScope.launch(Dispatchers.IO) {
+                                currentUser?.let { user ->
+                                    if (user.isAdmin) {
+                                        val others = familyMembers.filter { it.username != user.username }
+                                        if (others.isNotEmpty()) {
+                                            val newHead = others.random()
+                                            userDao.updateUser(newHead.copy(isAdmin = true))
+                                        }
+                                    }
+                                    userDao.deleteUser(user)
+                                }
+
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(this@MainFrameActivity, "Вы покинули семью", Toast.LENGTH_SHORT).show()
+                                    val intent = Intent(this@MainFrameActivity, MainActivity::class.java)
+                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                    startActivity(intent)
+                                    finish()
                                 }
                             }
-                            userDao.deleteUser(user)
+                            dialog.dismiss()
                         }
+                        .setNegativeButton("Отмена") { dialog, _ ->
+                            dialog.dismiss() // отмена выхода
+                        }
+                        .show()
+                }
 
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainFrameActivity, "Вы покинули семью", Toast.LENGTH_SHORT).show()
-                            val intent = Intent(this@MainFrameActivity, MainActivity::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                            startActivity(intent)
-                            finish()
-                        }
-                    }
+
+                // Кнопка выйти из аккаунта (только очищаем последнего пользователя)
+                logoutBtn.setOnClickListener {
+                    val prefs = getSharedPreferences("subtracker_prefs", MODE_PRIVATE)
+                    prefs.edit().clear().apply() // очистка последнего пользователя для авто-логина
+
+                    Toast.makeText(this@MainFrameActivity, "Вы вышли из аккаунта", Toast.LENGTH_SHORT).show()
+
+                    val intent = Intent(this@MainFrameActivity, MainActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    finish()
                 }
             }
         }
     }
+
 
     // ---------- Утилиты ----------
     private fun mapIconNameToChoice(iconResName: String): String {

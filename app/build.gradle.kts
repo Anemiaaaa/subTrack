@@ -1,9 +1,7 @@
-// kotlin
-// Файл: `app/build.gradle.kts`
 plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose) // если в root declared; можно убрать, если нет
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.kapt")
 }
 
@@ -24,7 +22,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3" // подберите совместимую версию с Compose/Kotlin
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
 
     compileOptions {
@@ -53,11 +51,10 @@ dependencies {
     // Compose
     implementation("androidx.activity:activity-compose:1.8.0")
     implementation("androidx.compose.ui:ui:1.5.0")
-    implementation("androidx.compose.material:material:1.5.0")
-    implementation("androidx.compose.material3:material3:1.1.2") // ← ЭТО ДОБАВЬ
+    implementation("androidx.compose.material3:material3:1.1.2")
     implementation("androidx.compose.ui:ui-tooling-preview:1.5.0")
     debugImplementation("androidx.compose.ui:ui-tooling:1.5.0")
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.8.1")
+
 }
-
-
-

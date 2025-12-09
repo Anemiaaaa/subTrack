@@ -91,6 +91,19 @@
         android:textSize="16sp" />
 
     <Button
+        android:id="@+id/logoutButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Выйти из аккаунта"
+        android:textStyle="bold"
+        android:backgroundTint="#FF9800"
+        android:textColor="#FFFFFF"
+        android:padding="12dp"
+        android:textSize="16sp"
+        android:layout_marginTop="8dp"/>
+
+
+    <Button
         android:id="@+id/btnCloseDialog"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

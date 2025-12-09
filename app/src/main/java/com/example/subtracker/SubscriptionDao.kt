@@ -19,5 +19,9 @@ interface SubscriptionDao {
     @Query("SELECT * FROM subscriptions WHERE familyCode = :code")
     fun getSubscriptionsByFamily(code: String): List<SubscriptionEntity>
 
+    @Query("SELECT * FROM subscriptions")
+    suspend fun getAllSubscriptions(): List<SubscriptionEntity>
+
+
 
 }
