@@ -78,22 +78,69 @@
 
     <!-- Текст "Нет аккаунта?" -->
 
+
     <Button
         android:id="@+id/buttonLogin"
-        android:layout_width="146dp"
-        android:layout_height="57dp"
-        android:layout_marginTop="68dp"
+        android:layout_width="260dp"
+        android:layout_height="56dp"
+        android:layout_marginTop="32dp"
         android:background="@drawable/rounded_button"
         android:backgroundTint="@color/blue"
         android:fontFamily="@font/jura_semibold"
-        android:text="ВОЙТИ"
+        android:text="ВОЙТИ ПО ИМЕНИ"
         android:textAllCaps="false"
         android:textColor="@android:color/white"
-        android:textSize="18sp"
+        android:textSize="22sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.497"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/editTextPassword" />
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="262dp"
+        android:layout_height="59dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/rounded_button"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonLogin"
+        tools:ignore="ExtraText">
+
+        <!-- Иконка Google -->
+        <ImageView
+            android:id="@+id/imageGoogleIcon"
+            android:layout_width="44dp"
+            android:layout_height="41dp"
+            android:layout_marginStart="16dp"
+            android:contentDescription="Google Icon"
+            android:src="@drawable/ic_google"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.5" />
+
+        <!-- Текст кнопки -->
+        <TextView
+            android:id="@+id/textGoogleLogin"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/jura_semibold"
+            android:gravity="center_vertical"
+            android:text="Войти через Google"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="1.0"
+            app:layout_constraintStart_toEndOf="@id/imageGoogleIcon"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.485" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+
 
     <TextView
         android:id="@+id/textNoAccount"

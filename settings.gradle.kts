@@ -1,9 +1,8 @@
-// Простая и надёжная конфигурация pluginManagement
 pluginManagement {
     repositories {
+        gradlePluginPortal()
         google()
         mavenCentral()
-        gradlePluginPortal()
     }
 }
 
@@ -15,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "subTracker"
+rootProject.name = "subtracker"
 include(":app")

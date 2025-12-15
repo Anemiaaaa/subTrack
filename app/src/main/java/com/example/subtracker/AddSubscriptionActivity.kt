@@ -1,29 +1,27 @@
 package com.example.subtracker
 
-import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.google.firebase.FirebaseApp
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Calendar
 
 class AddSubscriptionActivity : AppCompatActivity() {
+
+    private lateinit var db: FirebaseFirestore
+    private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_subscription)
 
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "subtrack-db"
-        ).build()
-
-        val subscriptionDao = db.subscriptionDao()
+        // 🔹 Инициализация Firebase
+        FirebaseApp.initializeApp(this)
+        auth = FirebaseAuth.getInstance()
+        db = FirebaseFirestore.getInstance()
 
         val nameInput = findViewById<EditText>(R.id.editTextName)
         val priceInput = findViewById<EditText>(R.id.editTextPrice)
@@ -37,19 +35,30 @@ class AddSubscriptionActivity : AppCompatActivity() {
         val navAdd = findViewById<ImageButton>(R.id.nav_add)
         val navStats = findViewById<ImageView>(R.id.nav_stats)
 
-        val familyCode = intent.getStringExtra("familyCode") ?: return
+        val familyCode = intent.getStringExtra("familyCode")
         val username = intent.getStringExtra("username") ?: "—"
+        val currentUser = auth.currentUser
 
-        // ✔️ переход на главный экран по нажатию на "домик"
+        if (familyCode == null || currentUser == null) {
+            Toast.makeText(this, "Ошибка авторизации", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
         navHome.setOnClickListener {
-            finish()   // просто возвращаемся назад
+            finish()
         }
 
         buttonSave.setOnClickListener {
             val name = nameInput.text.toString().trim()
-            val price = priceInput.text.toString().toDoubleOrNull() ?: 0.0   
+            val price = priceInput.text.toString().toDoubleOrNull() ?: 0.0
             val periodicity = periodicitySpinner.selectedItem.toString()
             val iconChoice = iconSpinner.selectedItem.toString()
+
+            if (name.isEmpty()) {
+                Toast.makeText(this, "Введите название подписки", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
             val iconName = when (iconChoice) {
                 "Netflix" -> "netflix"
@@ -62,35 +71,32 @@ class AddSubscriptionActivity : AppCompatActivity() {
                 else -> "ic_default"
             }
 
-            if (name.isEmpty()) {
-                Toast.makeText(this, "Введите название подписки", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            // Вычисляем следующую дату платежа
             val nextPaymentDate = calculateNextPaymentDate(periodicity)
 
-            lifecycleScope.launch(Dispatchers.IO) {
-                val sub = SubscriptionEntity(
-                    familyCode = familyCode,
-                    name = name,
-                    price = price,
-                    periodicity = periodicity,
-                    iconResName = iconName,
-                    ownerUsername = username,
-                    nextPaymentDate = nextPaymentDate
-                )
-                subscriptionDao.insert(sub)
+            val data = hashMapOf(
+                "familyCode" to familyCode,
+                "name" to name,
+                "price" to price,
+                "periodicity" to periodicity,
+                "iconResName" to iconName,
+                "ownerUid" to currentUser.uid,
+                "ownerUsername" to username,
+                "nextPaymentDate" to nextPaymentDate,
+                "createdAt" to FieldValue.serverTimestamp()
+            )
 
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@AddSubscriptionActivity, "Подписка добавлена", Toast.LENGTH_SHORT).show()
+            db.collection("subscriptions")
+                .add(data)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Подписка добавлена", Toast.LENGTH_SHORT).show()
                     finish()
                 }
-            }
+                .addOnFailureListener {
+                    Toast.makeText(this, "Ошибка сохранения", Toast.LENGTH_SHORT).show()
+                }
         }
     }
 
-    // Функция вычисления следующей даты платежа
     private fun calculateNextPaymentDate(periodicity: String): Long {
         val calendar = Calendar.getInstance()
         when (periodicity.lowercase()) {
@@ -103,5 +109,3 @@ class AddSubscriptionActivity : AppCompatActivity() {
         return calendar.timeInMillis
     }
 }
-
-// YW13GT amirka

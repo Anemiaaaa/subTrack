@@ -9,11 +9,8 @@ import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.lifecycleScope
-import androidx.room.Room
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -24,6 +21,8 @@ class MainFrameActivity : AppCompatActivity() {
     private lateinit var familyCode: String
     private lateinit var username: String
 
+    private val db = FirebaseFirestore.getInstance()
+
     // ---- Сортировка / фильтры ----
     private enum class SortMode { NONE, PRICE, DATE }
     private var sortMode = SortMode.NONE
@@ -32,12 +31,10 @@ class MainFrameActivity : AppCompatActivity() {
     private var filterByUserEnabled = false
     private var filterUsername: String? = null
 
-    // Фильтр-кнопки (в layout должны быть TextView / Button с такими id)
     private lateinit var btnSortPrice: TextView
     private lateinit var btnSortDate: TextView
     private lateinit var btnFilterUsers: TextView
 
-    // Формат даты: показываем день, месяц и год
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -55,7 +52,6 @@ class MainFrameActivity : AppCompatActivity() {
         username = intent.getStringExtra("username") ?: "—"
         textUsername.text = "Привет, $username"
 
-        // Кнопка "добавить подписку"
         findViewById<ImageButton>(R.id.nav_add).setOnClickListener {
             val intent = Intent(this, AddSubscriptionActivity::class.java)
             intent.putExtra("familyCode", familyCode)
@@ -63,7 +59,6 @@ class MainFrameActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Информация о семье
         findViewById<ImageButton>(R.id.btnFamilyInfo).setOnClickListener {
             showFamilyInfoDialog()
         }
@@ -78,57 +73,35 @@ class MainFrameActivity : AppCompatActivity() {
     }
 
     private fun setupFilterButtons() {
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "subtrack-db"
-        ).build()
+        db.collection("users")
+            .whereEqualTo("familyCode", familyCode)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
+                val currentUser = familyMembers.find { it.username == username }
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            val userDao = db.userDao()
-            val currentUser = userDao.getUserByUsername(username)
-            val familyMembers = userDao.getUsersByFamilyCode(familyCode)
+                btnFilterUsers.visibility = if (currentUser?.isAdmin == true) View.VISIBLE else View.GONE
 
-            withContext(Dispatchers.Main) {
-                // Только глава семьи видит кнопку "Семья"
-                btnFilterUsers.visibility =
-                    if (currentUser?.isAdmin == true) View.VISIBLE else View.GONE
-
-                // ----- Сортировка (вариант C) -----
                 btnSortPrice.setOnClickListener {
-                    if (sortMode == SortMode.PRICE) {
-                        sortAsc = !sortAsc
-                    } else {
-                        sortMode = SortMode.PRICE
-                        sortAsc = true
-                    }
+                    if (sortMode == SortMode.PRICE) sortAsc = !sortAsc else { sortMode = SortMode.PRICE; sortAsc = true }
                     updateButtonsUI()
                     loadSubscriptions()
                 }
 
                 btnSortDate.setOnClickListener {
-                    if (sortMode == SortMode.DATE) {
-                        sortAsc = !sortAsc
-                    } else {
-                        sortMode = SortMode.DATE
-                        sortAsc = true
-                    }
+                    if (sortMode == SortMode.DATE) sortAsc = !sortAsc else { sortMode = SortMode.DATE; sortAsc = true }
                     updateButtonsUI()
                     loadSubscriptions()
                 }
 
-                // Пользователи (диалог выбора)
                 btnFilterUsers.setOnClickListener {
                     if (familyMembers.isEmpty()) return@setOnClickListener
-
                     val names = familyMembers.map { it.username }.toTypedArray()
                     var selectedIndex = names.indexOf(filterUsername)
 
-                    AlertDialog.Builder(this@MainFrameActivity)
+                    AlertDialog.Builder(this)
                         .setTitle("Выберите пользователя")
-                        .setSingleChoiceItems(names, selectedIndex) { _, which ->
-                            selectedIndex = which
-                        }
+                        .setSingleChoiceItems(names, selectedIndex) { _, which -> selectedIndex = which }
                         .setPositiveButton("Ок") { dialog, _ ->
                             filterByUserEnabled = selectedIndex >= 0
                             filterUsername = if (filterByUserEnabled) names[selectedIndex] else null
@@ -146,26 +119,21 @@ class MainFrameActivity : AppCompatActivity() {
                         .show()
                 }
             }
-        }
     }
 
     private fun updateButtonsUI() {
-
-
         btnSortPrice.apply {
             val active = sortMode == SortMode.PRICE
             setBackgroundResource(if (active) R.drawable.chip_bg_active else R.drawable.chip_bg)
             setTextColor(if (active) Color.WHITE else Color.BLACK)
             text = "Цена" + if (active) (if (sortAsc) " ↑" else " ↓") else ""
         }
-
         btnSortDate.apply {
             val active = sortMode == SortMode.DATE
             setBackgroundResource(if (active) R.drawable.chip_bg_active else R.drawable.chip_bg)
             setTextColor(if (active) Color.WHITE else Color.BLACK)
             text = "Дата" + if (active) (if (sortAsc) " ↑" else " ↓") else ""
         }
-
         btnFilterUsers.apply {
             setBackgroundResource(if (filterByUserEnabled) R.drawable.chip_bg_active else R.drawable.chip_bg)
             setTextColor(if (filterByUserEnabled) Color.WHITE else Color.BLACK)
@@ -173,63 +141,34 @@ class MainFrameActivity : AppCompatActivity() {
         }
     }
 
-    // ---------------------- ЗАГРУЗКА ПОДПИСОК -------------------------
     private fun loadSubscriptions() {
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "subtrack-db"
-        ).build()
-        val subscriptionDao = db.subscriptionDao()
-        val userDao = db.userDao()
+        var query = db.collection("subscriptions").whereEqualTo("familyCode", familyCode)
+        if (filterByUserEnabled && filterUsername != null) query = query.whereEqualTo("ownerUsername", filterUsername)
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            val currentUser = userDao.getUserByUsername(username)
-            val allSubscriptions = subscriptionDao.getByFamily(familyCode)
-            val isAdmin = currentUser?.isAdmin == true
+        query.get().addOnSuccessListener { snapshot ->
+            subscriptionsContainer.removeAllViews()
 
-            // ---- ФИЛЬТР ----
-            val filtered = allSubscriptions.filter { sub ->
-                when {
-                    isAdmin -> {
-                        if (filterByUserEnabled && filterUsername != null)
-                            sub.ownerUsername == filterUsername
-                        else
-                            true
-                    }
-                    else -> sub.ownerUsername == username
-                }
+            if (snapshot.isEmpty) {
+                val noSubs = TextView(this).apply { text = "Подписок нет"; gravity = Gravity.CENTER; textSize = 18f }
+                subscriptionsContainer.addView(noSubs)
+                return@addOnSuccessListener
             }
 
-            // ---- СОРТИРОВКА (вариант C: только одна активна) ----
-            val sorted = when (sortMode) {
-                SortMode.PRICE -> if (sortAsc) filtered.sortedBy { it.price } else filtered.sortedByDescending { it.price }
-                SortMode.DATE -> if (sortAsc) filtered.sortedBy { it.nextPaymentDate } else filtered.sortedByDescending { it.nextPaymentDate }
-                SortMode.NONE -> filtered
+            var subs = snapshot.documents.mapNotNull { it.toObject(FirebaseSubscription::class.java) }
+
+            // Сортировка
+            subs = when (sortMode) {
+                SortMode.PRICE -> if (sortAsc) subs.sortedBy { it.price } else subs.sortedByDescending { it.price }
+                SortMode.DATE -> if (sortAsc) subs.sortedBy { it.nextPaymentDate } else subs.sortedByDescending { it.nextPaymentDate }
+                else -> subs
             }
 
-            withContext(Dispatchers.Main) {
-                subscriptionsContainer.removeAllViews()
-                if (sorted.isEmpty()) {
-                    val noSubs = TextView(this@MainFrameActivity)
-                    noSubs.text = "Подписок нет"
-                    noSubs.gravity = Gravity.CENTER
-                    noSubs.textSize = 18f
-                    noSubs.setTextColor(ContextCompat.getColor(this@MainFrameActivity, android.R.color.black))
-                    subscriptionsContainer.addView(noSubs)
-                } else {
-                    sorted.forEach { sub ->
-                        subscriptionsContainer.addView(createSubscriptionCard(sub, username))
-                    }
-                }
-            }
+            subs.forEach { subscriptionsContainer.addView(createSubscriptionCard(it)) }
         }
     }
 
-    // -------------------- КАРТОЧКА ПОДПИСКИ --------------------
-    private fun createSubscriptionCard(sub: SubscriptionEntity, username: String): View {
+    private fun createSubscriptionCard(sub: FirebaseSubscription): View {
         val card = layoutInflater.inflate(R.layout.sub_card_item, subscriptionsContainer, false)
-
         val iconImage = card.findViewById<ImageView>(R.id.iconImage)
         val nameText = card.findViewById<TextView>(R.id.nameText)
         val ownerText = card.findViewById<TextView>(R.id.ownerText)
@@ -241,21 +180,15 @@ class MainFrameActivity : AppCompatActivity() {
 
         nameText.text = sub.name
         ownerText.text = if (sub.ownerUsername == username) "Для: вы" else "Для: ${sub.ownerUsername}"
-
-        // Показываем именно дату следующего платежа в формате dd.MM.yyyy
         dateText.text = dateFormat.format(Date(sub.nextPaymentDate))
         priceText.text = "${sub.price}₽"
 
-        // Клик на карточке — показываем меню действий
-        card.setOnClickListener {
-            showSubscriptionActionsDialog(sub)
-        }
+        card.setOnClickListener { showSubscriptionActionsDialog(sub) }
 
         return card
     }
 
-    // -------------------- ДИАЛОГ ДЕЙСТВИЙ С ПОДПИСКОЙ --------------------
-    private fun showSubscriptionActionsDialog(sub: SubscriptionEntity) {
+    private fun showSubscriptionActionsDialog(sub: FirebaseSubscription) {
         val items = arrayOf("Редактировать", "Оплатить", "Удалить")
         AlertDialog.Builder(this)
             .setTitle(sub.name)
@@ -266,12 +199,10 @@ class MainFrameActivity : AppCompatActivity() {
                     2 -> deleteSubscription(sub)
                 }
                 dialog.dismiss()
-            }
-            .show()
+            }.show()
     }
 
-    // ---- Редактирование (используем layout activity_add_subscription для формы) ----
-    private fun showEditSubscriptionDialog(sub: SubscriptionEntity) {
+    private fun showEditSubscriptionDialog(sub: FirebaseSubscription) {
         val dialogView = layoutInflater.inflate(R.layout.activity_add_subscription, null)
         val nameInput = dialogView.findViewById<EditText>(R.id.editTextName)
         val priceInput = dialogView.findViewById<EditText>(R.id.editTextPrice)
@@ -282,7 +213,7 @@ class MainFrameActivity : AppCompatActivity() {
         nameInput.setText(sub.name)
         priceInput.setText(sub.price.toString())
 
-        // Попытка выставить позицию spinner'ов (если в resources есть такие строки)
+        // Попытка выставить позицию spinner'ов
         try {
             val periodAdapter = periodSpinner.adapter
             for (i in 0 until (periodAdapter?.count ?: 0)) {
@@ -293,14 +224,12 @@ class MainFrameActivity : AppCompatActivity() {
             }
             val iconAdapter = iconSpinner.adapter
             for (i in 0 until (iconAdapter?.count ?: 0)) {
-                if ((iconAdapter?.getItem(i) as? String)?.let { mapIconNameToChoice(sub.iconResName) == it } == true) {
+                if ((iconAdapter?.getItem(i) as? String)?.let { mapChoiceToIconResName(sub.iconResName) == it } == true) {
                     iconSpinner.setSelection(i)
                     break
                 }
             }
-        } catch (_: Exception) {
-            // Игнорируем — если адаптеры отличны, оставляем default
-        }
+        } catch (_: Exception) {}
 
         AlertDialog.Builder(this)
             .setTitle("Редактировать подписку")
@@ -321,34 +250,24 @@ class MainFrameActivity : AppCompatActivity() {
                     else -> sub.iconResName
                 }
 
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val db = Room.databaseBuilder(
-                        applicationContext,
-                        AppDatabase::class.java,
-                        "subtrack-db"
-                    ).build()
-                    val subscriptionDao = db.subscriptionDao()
-
-                    // Удаляем старую и вставляем новую запись с тем же id (Room с @Insert autoGenerate may ignore id,
-                    // но такой подход работал в проекте — если хочешь стабильное обновление, добавь @Update в DAO)
-                    subscriptionDao.delete(sub)
-                    val updated = SubscriptionEntity(
-                        id = sub.id,
-                        familyCode = sub.familyCode,
-                        name = newName,
-                        price = newPrice,
-                        periodicity = newPeriod,
-                        iconResName = newIconResName,
-                        ownerUsername = sub.ownerUsername,
-                        nextPaymentDate = sub.nextPaymentDate // не меняем дату при редактировании
+                // Обновляем в Firestore
+                db.collection("subscriptions").document(sub.id)
+                    .update(
+                        mapOf(
+                            "name" to newName,
+                            "price" to newPrice,
+                            "periodicity" to newPeriod,
+                            "iconResName" to newIconResName
+                        )
                     )
-                    subscriptionDao.insert(updated)
-
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainFrameActivity, "Подписка обновлена", Toast.LENGTH_SHORT).show()
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Подписка обновлена", Toast.LENGTH_SHORT).show()
                         loadSubscriptions()
                     }
-                }
+                    .addOnFailureListener { e ->
+                        e.printStackTrace()
+                        Toast.makeText(this, "Ошибка при обновлении подписки", Toast.LENGTH_SHORT).show()
+                    }
 
                 dialog.dismiss()
             }
@@ -356,86 +275,69 @@ class MainFrameActivity : AppCompatActivity() {
             .show()
     }
 
-    // ---- Оплатить: переносим nextPaymentDate на следующий период (учитываем период подписки) ----
-    private fun normalizePeriodicity(raw: String): String {
-        return raw.trim().lowercase(Locale.getDefault()).replace("ё", "е")
-    }
 
-    private fun paySubscription(sub: SubscriptionEntity) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            val db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "subtrack-db").build()
-            val subscriptionDao = db.subscriptionDao()
 
-            val baseTime = if (sub.nextPaymentDate > System.currentTimeMillis()) sub.nextPaymentDate else System.currentTimeMillis()
-            val cal = Calendar.getInstance().apply { timeInMillis = baseTime }
+    private fun paySubscription(sub: FirebaseSubscription) {
+        val baseTime = if (sub.nextPaymentDate > System.currentTimeMillis()) sub.nextPaymentDate else System.currentTimeMillis()
+        val cal = Calendar.getInstance().apply { timeInMillis = baseTime }
 
-            val period = normalizePeriodicity(sub.periodicity)
+        val period = normalizePeriodicity(sub.periodicity)
 
-            when {
-                period.contains("день") || period.contains("day") -> cal.add(Calendar.DAY_OF_YEAR, 1)
-                period.contains("недел") || period.contains("week") -> cal.add(Calendar.WEEK_OF_YEAR, 1)
-                period.contains("месяц") || period.contains("month") -> cal.add(Calendar.MONTH, 1)
-                period.contains("кварт") || period.contains("quarter") -> cal.add(Calendar.MONTH, 3)
-                period.contains("год") || period.contains("year") -> cal.add(Calendar.YEAR, 1)
-                else -> cal.add(Calendar.MONTH, 1)
-            }
+        when {
+            period.contains("день") || period.contains("day") -> cal.add(Calendar.DAY_OF_YEAR, 1)
+            period.contains("недел") || period.contains("week") -> cal.add(Calendar.WEEK_OF_YEAR, 1)
+            period.contains("месяц") || period.contains("month") -> cal.add(Calendar.MONTH, 1)
+            period.contains("кварт") || period.contains("quarter") -> cal.add(Calendar.MONTH, 3)
+            period.contains("год") || period.contains("year") -> cal.add(Calendar.YEAR, 1)
+            else -> cal.add(Calendar.MONTH, 1)
+        }
 
-            val newDate = cal.timeInMillis
+        val newDate = cal.timeInMillis
 
-            // LOG (чтобы проверить что сохраняется)
-            android.util.Log.d("PAY", "sub.id=${sub.id} periodicity='${sub.periodicity}' normalized='$period' base=${Date(baseTime)} -> new=${Date(newDate)}")
-
-            // обновляем запись (лучше использовать @Update — ниже добавлю изменение DAO)
-            subscriptionDao.delete(sub)
-            subscriptionDao.insert(sub.copy(nextPaymentDate = newDate))
-
-            withContext(Dispatchers.Main) {
-                Toast.makeText(this@MainFrameActivity, "Оплата проведена — дата обновлена", Toast.LENGTH_SHORT).show()
+        db.collection("subscriptions").document(sub.id)
+            .update("nextPaymentDate", newDate)
+            .addOnSuccessListener {
+                Toast.makeText(this, "Оплата проведена — дата обновлена", Toast.LENGTH_SHORT).show()
                 loadSubscriptions()
             }
-        }
+            .addOnFailureListener { e ->
+                e.printStackTrace()
+                Toast.makeText(this, "Ошибка при оплате", Toast.LENGTH_SHORT).show()
+            }
     }
 
-    // ---- Удалить подписку ----
-    private fun deleteSubscription(sub: SubscriptionEntity) {
+
+    private fun deleteSubscription(sub: FirebaseSubscription) {
         AlertDialog.Builder(this)
             .setTitle("Удалить подписку?")
             .setMessage("Подтвердите удаление подписки \"${sub.name}\"")
             .setPositiveButton("Удалить") { dialog, _ ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    val db = Room.databaseBuilder(
-                        applicationContext,
-                        AppDatabase::class.java,
-                        "subtrack-db"
-                    ).build()
-                    val subscriptionDao = db.subscriptionDao()
-                    subscriptionDao.delete(sub)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainFrameActivity, "Подписка удалена", Toast.LENGTH_SHORT).show()
+                db.collection("subscriptions").document(sub.id)
+                    .delete()
+                    .addOnSuccessListener {
+                        Toast.makeText(this, "Подписка удалена", Toast.LENGTH_SHORT).show()
                         loadSubscriptions()
                     }
-                }
+                    .addOnFailureListener { e -> e.printStackTrace() }
                 dialog.dismiss()
             }
             .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
             .show()
     }
 
-    // -------------------- ОКНО СЕМЬИ --------------------
+    private fun normalizePeriodicity(raw: String): String {
+        return raw.trim().lowercase(Locale.getDefault()).replace("ё", "е")
+    }
+
     private fun showFamilyInfoDialog() {
-        val db = Room.databaseBuilder(
-            applicationContext,
-            AppDatabase::class.java,
-            "subtrack-db"
-        ).build()
-        val userDao = db.userDao()
+        db.collection("users")
+            .whereEqualTo("familyCode", familyCode)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
+                val currentUser = familyMembers.find { it.username == username }
+                val familyNameValue = familyMembers.firstOrNull()?.familyName ?: "—"
 
-        lifecycleScope.launch(Dispatchers.IO) {
-            val familyMembers = userDao.getUsersByFamilyCode(familyCode)
-            val currentUser = userDao.getUserByUsername(username)
-            val familyNameValue = familyMembers.firstOrNull()?.familyName ?: "—"
-
-            withContext(Dispatchers.Main) {
                 val dialogView = layoutInflater.inflate(R.layout.family_info_dialog, null)
                 val familyNameText = dialogView.findViewById<TextView>(R.id.familyName)
                 val familyCodeText = dialogView.findViewById<TextView>(R.id.familyCode)
@@ -443,128 +345,84 @@ class MainFrameActivity : AppCompatActivity() {
                 val roleText = dialogView.findViewById<TextView>(R.id.familyRole)
                 val closeBtn = dialogView.findViewById<Button>(R.id.btnCloseDialog)
                 val leaveBtn = dialogView.findViewById<Button>(R.id.leaveFamilyButton)
-
-                // Новая кнопка выхода из аккаунта
                 val logoutBtn = dialogView.findViewById<Button>(R.id.logoutButton)
 
                 familyNameText.text = "Семья: $familyNameValue"
                 familyCodeText.text = "Код семьи: $familyCode"
-
-                familyCodeText.setOnClickListener {
-                    val shareIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, familyCode)
-                        type = "text/plain"
-                    }
-                    startActivity(Intent.createChooser(shareIntent, "Поделиться кодом семьи"))
-                }
-
                 roleText.text = "Роль: ${if (currentUser?.isAdmin == true) "глава" else "участник"}"
 
                 membersContainer.removeAllViews()
                 familyMembers.forEach { member ->
-                    val itemLayout = LinearLayout(this@MainFrameActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        setPadding(0, 8, 0, 8)
-                    }
-
-                    val avatar = TextView(this@MainFrameActivity).apply {
+                    val itemLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0,8,0,8) }
+                    val avatar = TextView(this).apply {
                         text = member.username.first().uppercaseChar().toString()
                         textSize = 18f
                         gravity = Gravity.CENTER
                         setTextColor(ContextCompat.getColor(this@MainFrameActivity, android.R.color.white))
                         background = ContextCompat.getDrawable(this@MainFrameActivity, R.drawable.circle_bg)
-                        setPadding(20, 10, 20, 10)
+                        setPadding(20,10,20,10)
                     }
-
-                    val nameText = TextView(this@MainFrameActivity).apply {
-                        text = member.username
-                        textSize = 18f
-                        setPadding(16, 0, 0, 0)
-                    }
-
+                    val nameText = TextView(this).apply { text = member.username; textSize = 18f; setPadding(16,0,0,0) }
                     itemLayout.addView(avatar)
                     itemLayout.addView(nameText)
                     membersContainer.addView(itemLayout)
                 }
 
-                val dialog = AlertDialog.Builder(this@MainFrameActivity)
+                val dialog = AlertDialog.Builder(this)
                     .setView(dialogView)
                     .create()
-
                 dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
                 dialog.show()
-                dialog.window?.setLayout(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                )
-
+                dialog.window?.setLayout(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 closeBtn.setOnClickListener { dialog.dismiss() }
 
-                // Кнопка покинуть семью
                 leaveBtn.setOnClickListener {
-                    // Показываем подтверждение перед выходом из семьи
-                    AlertDialog.Builder(this@MainFrameActivity)
+                    AlertDialog.Builder(this)
                         .setTitle("Подтверждение")
                         .setMessage("Вы уверены, что хотите покинуть семью?")
-                        .setPositiveButton("Да") { dialog, _ ->
-                            lifecycleScope.launch(Dispatchers.IO) {
-                                currentUser?.let { user ->
-                                    if (user.isAdmin) {
-                                        val others = familyMembers.filter { it.username != user.username }
-                                        if (others.isNotEmpty()) {
-                                            val newHead = others.random()
-                                            userDao.updateUser(newHead.copy(isAdmin = true))
-                                        }
+                        .setPositiveButton("Да") { d, _ ->
+                            currentUser?.let { user ->
+                                if (user.isAdmin) {
+                                    val others = familyMembers.filter { it.username != user.username }
+                                    if (others.isNotEmpty()) {
+                                        val newHead = others.random()
+                                        db.collection("users").document(newHead.id).update("isAdmin", true)
                                     }
-                                    userDao.deleteUser(user)
                                 }
-
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@MainFrameActivity, "Вы покинули семью", Toast.LENGTH_SHORT).show()
-                                    val intent = Intent(this@MainFrameActivity, MainActivity::class.java)
-                                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                    startActivity(intent)
-                                    finish()
-                                }
+                                db.collection("users").document(user.id).delete()
+                                    .addOnSuccessListener {
+                                        Toast.makeText(this, "Вы покинули семью", Toast.LENGTH_SHORT).show()
+                                        val intent = Intent(this, MainActivity::class.java)
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        startActivity(intent)
+                                        finish()
+                                    }
                             }
-                            dialog.dismiss()
+                            d.dismiss()
                         }
-                        .setNegativeButton("Отмена") { dialog, _ ->
-                            dialog.dismiss() // отмена выхода
-                        }
-                        .show()
+                        .setNegativeButton("Отмена") { d, _ -> d.dismiss() }.show()
                 }
 
-
-                // Кнопка выйти из аккаунта (только очищаем последнего пользователя)
                 logoutBtn.setOnClickListener {
                     val prefs = getSharedPreferences("subtracker_prefs", MODE_PRIVATE)
-                    prefs.edit().clear().apply() // очистка последнего пользователя для авто-логина
-
-                    Toast.makeText(this@MainFrameActivity, "Вы вышли из аккаунта", Toast.LENGTH_SHORT).show()
-
-                    val intent = Intent(this@MainFrameActivity, MainActivity::class.java)
+                    prefs.edit().clear().apply()
+                    Toast.makeText(this, "Вы вышли из аккаунта", Toast.LENGTH_SHORT).show()
+                    val intent = Intent(this, MainActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     startActivity(intent)
                     finish()
                 }
             }
-        }
     }
 
-
-    // ---------- Утилиты ----------
-    private fun mapIconNameToChoice(iconResName: String): String {
-        return when (iconResName) {
-            "netflix" -> "Netflix"
-            "youtube" -> "YouTube"
-            "spotify" -> "Spotify"
-            "google_one" -> "Google One"
-            "amazon_prime" -> "Amazon Prime"
-            "disney" -> "Disney+"
-            "vk_music" -> "VK Music"
-            else -> "ic_default"
-        }
+    private fun mapChoiceToIconResName(choice: String?): String? = when(choice) {
+        "Netflix" -> "netflix"
+        "YouTube" -> "youtube"
+        "Spotify" -> "spotify"
+        "Google One" -> "google_one"
+        "Amazon Prime" -> "amazon_prime"
+        "Disney+" -> "disney"
+        "VK Music" -> "vk_music"
+        else -> null
     }
 }

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "602846130797",
+    "project_id": "subtracker-d909da62",
+    "storage_bucket": "subtracker-d909da62.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:602846130797:android:203432d727ea87268d0564",
+        "android_client_info": {
+          "package_name": "com.example.subtracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9sZmwD63iIa49C-V_RkdtR5iQDHd3CJ0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
