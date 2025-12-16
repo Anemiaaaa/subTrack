@@ -3,7 +3,6 @@ package com.example.subtracker
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Bundle
-import android.util.Log
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -38,68 +37,50 @@ class RegisterActivity : AppCompatActivity() {
 
             val familyCode = generateFamilyCode()
 
-            Log.d("RegisterActivity", "Запуск создания семьи: username=$username, familyName=$familyName, familyCode=$familyCode")
-
-            // Проверяем аутентификацию
             val currentUser = auth.currentUser
             if (currentUser == null) {
-                auth.signInAnonymously()
-                    .addOnSuccessListener { authResult ->
-                        val uid = authResult.user?.uid
-                        if (uid != null) {
-                            Log.d("RegisterActivity", "Анонимный пользователь создан: UID=$uid")
-                            createFamilyUser(uid, username, familyName, familyCode)
-                        } else {
-                            Log.e("RegisterActivity", "authResult.user == null")
-                            Toast.makeText(this, "Ошибка регистрации", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("RegisterActivity", "Ошибка анонимной аутентификации: ${e.message}")
-                        Toast.makeText(this, "Ошибка аутентификации: ${e.message}", Toast.LENGTH_SHORT).show()
-                    }
+                auth.signInAnonymously().addOnSuccessListener { authResult ->
+                    val uid = authResult.user!!.uid
+                    createFamily(uid, username, familyName, familyCode)
+                }.addOnFailureListener {
+                    Toast.makeText(this, "Ошибка аутентификации", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                createFamilyUser(currentUser.uid, username, familyName, familyCode)
+                createFamily(currentUser.uid, username, familyName, familyCode)
             }
         }
 
         backButton.setOnClickListener { finish() }
     }
 
-    private fun createFamilyUser(uid: String, username: String, familyName: String, familyCode: String) {
-        Log.d("RegisterActivity", "Создание документа пользователя UID=$uid")
+    private fun createFamily(uid: String, username: String, familyName: String, familyCode: String) {
+        // Создаём семью
+        val familyData = hashMapOf(
+            "familyName" to familyName,
+            "createdBy" to uid
+        )
 
-        db.collection("users")
-            .whereEqualTo("username", username)
-            .get()
-            .addOnSuccessListener { query ->
-                if (!query.isEmpty) {
-                    Toast.makeText(this, "Пользователь уже существует", Toast.LENGTH_SHORT).show()
-                    Log.d("RegisterActivity", "Username уже существует: $username")
-                    return@addOnSuccessListener
-                }
-
-                val userMap = hashMapOf(
-                    "username" to username,
-                    "familyName" to familyName,
-                    "familyCode" to familyCode,
-                    "isAdmin" to true
+        db.collection("families").document(familyCode).set(familyData)
+            .addOnSuccessListener {
+                // Создаём пользователя как админа через FirebaseUser
+                val user = FirebaseUser(
+                    id = uid,
+                    username = username,
+                    familyCode = familyCode,
+                    familyName = familyName,
+                    isAdmin = true
                 )
 
-                db.collection("users").document(uid)
-                    .set(userMap)
+                db.collection("users").document(uid).set(user)
                     .addOnSuccessListener {
-                        Log.d("RegisterActivity", "Пользователь создан успешно: UID=$uid")
                         showFamilyCodeDialog(familyCode)
                     }
-                    .addOnFailureListener { e ->
-                        Log.e("RegisterActivity", "Ошибка при создании пользователя: ${e.message}")
-                        Toast.makeText(this, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                    .addOnFailureListener {
+                        Toast.makeText(this, "Ошибка при создании пользователя", Toast.LENGTH_SHORT).show()
                     }
             }
-            .addOnFailureListener { e ->
-                Log.e("RegisterActivity", "Ошибка при проверке username: ${e.message}")
-                Toast.makeText(this, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+            .addOnFailureListener {
+                Toast.makeText(this, "Ошибка при создании семьи", Toast.LENGTH_SHORT).show()
             }
     }
 
@@ -114,8 +95,7 @@ class RegisterActivity : AppCompatActivity() {
             val messageView = dialog.findViewById<TextView>(android.R.id.message)
             messageView?.setOnClickListener {
                 val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Код семьи", familyCode)
-                clipboard.setPrimaryClip(clip)
+                clipboard.setPrimaryClip(ClipData.newPlainText("Код семьи", familyCode))
                 Toast.makeText(this, "Код скопирован", Toast.LENGTH_SHORT).show()
             }
         }

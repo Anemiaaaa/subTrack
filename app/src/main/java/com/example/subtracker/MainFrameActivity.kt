@@ -1,18 +1,22 @@
 package com.example.subtracker
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.*
+
+
+
+
 
 class MainFrameActivity : AppCompatActivity() {
 
@@ -22,18 +26,17 @@ class MainFrameActivity : AppCompatActivity() {
     private lateinit var username: String
 
     private val db = FirebaseFirestore.getInstance()
-
-    // ---- Сортировка / фильтры ----
-    private enum class SortMode { NONE, PRICE, DATE }
-    private var sortMode = SortMode.NONE
-    private var sortAsc = true
-
-    private var filterByUserEnabled = false
-    private var filterUsername: String? = null
+    private val auth = FirebaseAuth.getInstance()
 
     private lateinit var btnSortPrice: TextView
     private lateinit var btnSortDate: TextView
     private lateinit var btnFilterUsers: TextView
+
+    private enum class SortMode { NONE, PRICE, DATE }
+    private var sortMode = SortMode.NONE
+    private var sortAsc = true
+    private var filterByUserEnabled = false
+    private var filterUsername: String? = null
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
@@ -43,19 +46,19 @@ class MainFrameActivity : AppCompatActivity() {
 
         subscriptionsContainer = findViewById(R.id.subscriptionsContainer)
         textUsername = findViewById(R.id.textUsername)
-
         btnSortPrice = findViewById(R.id.btnSortPrice)
         btnSortDate = findViewById(R.id.btnSortDate)
         btnFilterUsers = findViewById(R.id.btnFilterUsers)
 
+        username = intent.getStringExtra("username") ?: return
         familyCode = intent.getStringExtra("familyCode") ?: return
-        username = intent.getStringExtra("username") ?: "—"
+
         textUsername.text = "Привет, $username"
 
         findViewById<ImageButton>(R.id.nav_add).setOnClickListener {
             val intent = Intent(this, AddSubscriptionActivity::class.java)
-            intent.putExtra("familyCode", familyCode)
             intent.putExtra("username", username)
+            intent.putExtra("familyCode", familyCode)
             startActivity(intent)
         }
 
@@ -149,14 +152,15 @@ class MainFrameActivity : AppCompatActivity() {
             subscriptionsContainer.removeAllViews()
 
             if (snapshot.isEmpty) {
-                val noSubs = TextView(this).apply { text = "Подписок нет"; gravity = Gravity.CENTER; textSize = 18f }
+                val noSubs = TextView(this).apply {
+                    text = "Подписок нет"; gravity = Gravity.CENTER; textSize = 18f
+                }
                 subscriptionsContainer.addView(noSubs)
                 return@addOnSuccessListener
             }
 
             var subs = snapshot.documents.mapNotNull { it.toObject(FirebaseSubscription::class.java) }
 
-            // Сортировка
             subs = when (sortMode) {
                 SortMode.PRICE -> if (sortAsc) subs.sortedBy { it.price } else subs.sortedByDescending { it.price }
                 SortMode.DATE -> if (sortAsc) subs.sortedBy { it.nextPaymentDate } else subs.sortedByDescending { it.nextPaymentDate }
@@ -202,6 +206,7 @@ class MainFrameActivity : AppCompatActivity() {
             }.show()
     }
 
+    // --- Методы редактирования, оплаты и удаления подписок ---
     private fun showEditSubscriptionDialog(sub: FirebaseSubscription) {
         val dialogView = layoutInflater.inflate(R.layout.activity_add_subscription, null)
         val nameInput = dialogView.findViewById<EditText>(R.id.editTextName)
@@ -209,27 +214,8 @@ class MainFrameActivity : AppCompatActivity() {
         val periodSpinner = dialogView.findViewById<Spinner>(R.id.spinnerPeriodicity)
         val iconSpinner = dialogView.findViewById<Spinner>(R.id.spinnerIcon)
 
-        // Предзаполняем
         nameInput.setText(sub.name)
         priceInput.setText(sub.price.toString())
-
-        // Попытка выставить позицию spinner'ов
-        try {
-            val periodAdapter = periodSpinner.adapter
-            for (i in 0 until (periodAdapter?.count ?: 0)) {
-                if ((periodAdapter?.getItem(i) as? String) == sub.periodicity) {
-                    periodSpinner.setSelection(i)
-                    break
-                }
-            }
-            val iconAdapter = iconSpinner.adapter
-            for (i in 0 until (iconAdapter?.count ?: 0)) {
-                if ((iconAdapter?.getItem(i) as? String)?.let { mapChoiceToIconResName(sub.iconResName) == it } == true) {
-                    iconSpinner.setSelection(i)
-                    break
-                }
-            }
-        } catch (_: Exception) {}
 
         AlertDialog.Builder(this)
             .setTitle("Редактировать подписку")
@@ -238,19 +224,8 @@ class MainFrameActivity : AppCompatActivity() {
                 val newName = nameInput.text.toString().trim().ifEmpty { sub.name }
                 val newPrice = priceInput.text.toString().toDoubleOrNull() ?: sub.price
                 val newPeriod = periodSpinner.selectedItem?.toString() ?: sub.periodicity
-                val newIconChoice = iconSpinner.selectedItem?.toString()
-                val newIconResName = when (newIconChoice) {
-                    "Netflix" -> "netflix"
-                    "YouTube" -> "youtube"
-                    "Spotify" -> "spotify"
-                    "Google One" -> "google_one"
-                    "Amazon Prime" -> "amazon_prime"
-                    "Disney+" -> "disney"
-                    "VK Music" -> "vk_music"
-                    else -> sub.iconResName
-                }
+                val newIconResName = mapChoiceToIconResName(iconSpinner.selectedItem?.toString()) ?: sub.iconResName
 
-                // Обновляем в Firestore
                 db.collection("subscriptions").document(sub.id)
                     .update(
                         mapOf(
@@ -259,15 +234,8 @@ class MainFrameActivity : AppCompatActivity() {
                             "periodicity" to newPeriod,
                             "iconResName" to newIconResName
                         )
-                    )
-                    .addOnSuccessListener {
-                        Toast.makeText(this, "Подписка обновлена", Toast.LENGTH_SHORT).show()
-                        loadSubscriptions()
-                    }
-                    .addOnFailureListener { e ->
-                        e.printStackTrace()
-                        Toast.makeText(this, "Ошибка при обновлении подписки", Toast.LENGTH_SHORT).show()
-                    }
+                    ).addOnSuccessListener { loadSubscriptions() }
+                    .addOnFailureListener { e -> e.printStackTrace() }
 
                 dialog.dismiss()
             }
@@ -275,60 +243,44 @@ class MainFrameActivity : AppCompatActivity() {
             .show()
     }
 
-
-
     private fun paySubscription(sub: FirebaseSubscription) {
-        val baseTime = if (sub.nextPaymentDate > System.currentTimeMillis()) sub.nextPaymentDate else System.currentTimeMillis()
-        val cal = Calendar.getInstance().apply { timeInMillis = baseTime }
-
-        val period = normalizePeriodicity(sub.periodicity)
-
-        when {
-            period.contains("день") || period.contains("day") -> cal.add(Calendar.DAY_OF_YEAR, 1)
-            period.contains("недел") || period.contains("week") -> cal.add(Calendar.WEEK_OF_YEAR, 1)
-            period.contains("месяц") || period.contains("month") -> cal.add(Calendar.MONTH, 1)
-            period.contains("кварт") || period.contains("quarter") -> cal.add(Calendar.MONTH, 3)
-            period.contains("год") || period.contains("year") -> cal.add(Calendar.YEAR, 1)
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = maxOf(System.currentTimeMillis(), sub.nextPaymentDate)
+        }
+        when (sub.periodicity.lowercase(Locale.getDefault())) {
+            "день" -> cal.add(Calendar.DAY_OF_YEAR, 1)
+            "неделя" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
+            "месяц" -> cal.add(Calendar.MONTH, 1)
+            "квартал" -> cal.add(Calendar.MONTH, 3)
+            "год" -> cal.add(Calendar.YEAR, 1)
             else -> cal.add(Calendar.MONTH, 1)
         }
 
-        val newDate = cal.timeInMillis
-
         db.collection("subscriptions").document(sub.id)
-            .update("nextPaymentDate", newDate)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Оплата проведена — дата обновлена", Toast.LENGTH_SHORT).show()
-                loadSubscriptions()
-            }
-            .addOnFailureListener { e ->
-                e.printStackTrace()
-                Toast.makeText(this, "Ошибка при оплате", Toast.LENGTH_SHORT).show()
-            }
+            .update("nextPaymentDate", cal.timeInMillis)
+            .addOnSuccessListener { loadSubscriptions() }
+            .addOnFailureListener { it.printStackTrace() }
     }
-
 
     private fun deleteSubscription(sub: FirebaseSubscription) {
-        AlertDialog.Builder(this)
-            .setTitle("Удалить подписку?")
-            .setMessage("Подтвердите удаление подписки \"${sub.name}\"")
-            .setPositiveButton("Удалить") { dialog, _ ->
-                db.collection("subscriptions").document(sub.id)
-                    .delete()
-                    .addOnSuccessListener {
-                        Toast.makeText(this, "Подписка удалена", Toast.LENGTH_SHORT).show()
-                        loadSubscriptions()
-                    }
-                    .addOnFailureListener { e -> e.printStackTrace() }
-                dialog.dismiss()
-            }
-            .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
-            .show()
+        db.collection("subscriptions").document(sub.id)
+            .delete()
+            .addOnSuccessListener { loadSubscriptions() }
+            .addOnFailureListener { it.printStackTrace() }
     }
 
-    private fun normalizePeriodicity(raw: String): String {
-        return raw.trim().lowercase(Locale.getDefault()).replace("ё", "е")
+    private fun mapChoiceToIconResName(choice: String?): String? = when (choice) {
+        "Netflix" -> "netflix"
+        "YouTube" -> "youtube"
+        "Spotify" -> "spotify"
+        "Google One" -> "google_one"
+        "Amazon Prime" -> "amazon_prime"
+        "Disney+" -> "disney"
+        "VK Music" -> "vk_music"
+        else -> null
     }
 
+    // --- Данные о семье ---
     private fun showFamilyInfoDialog() {
         db.collection("users")
             .whereEqualTo("familyCode", familyCode)
@@ -358,7 +310,7 @@ class MainFrameActivity : AppCompatActivity() {
                         text = member.username.first().uppercaseChar().toString()
                         textSize = 18f
                         gravity = Gravity.CENTER
-                        setTextColor(ContextCompat.getColor(this@MainFrameActivity, android.R.color.white))
+                        setTextColor(Color.WHITE)
                         background = ContextCompat.getDrawable(this@MainFrameActivity, R.drawable.circle_bg)
                         setPadding(20,10,20,10)
                     }
@@ -374,55 +326,36 @@ class MainFrameActivity : AppCompatActivity() {
                 dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
                 dialog.show()
                 dialog.window?.setLayout(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+
                 closeBtn.setOnClickListener { dialog.dismiss() }
 
                 leaveBtn.setOnClickListener {
-                    AlertDialog.Builder(this)
-                        .setTitle("Подтверждение")
-                        .setMessage("Вы уверены, что хотите покинуть семью?")
-                        .setPositiveButton("Да") { d, _ ->
-                            currentUser?.let { user ->
-                                if (user.isAdmin) {
-                                    val others = familyMembers.filter { it.username != user.username }
-                                    if (others.isNotEmpty()) {
-                                        val newHead = others.random()
-                                        db.collection("users").document(newHead.id).update("isAdmin", true)
-                                    }
-                                }
-                                db.collection("users").document(user.id).delete()
-                                    .addOnSuccessListener {
-                                        Toast.makeText(this, "Вы покинули семью", Toast.LENGTH_SHORT).show()
-                                        val intent = Intent(this, MainActivity::class.java)
-                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                        startActivity(intent)
-                                        finish()
-                                    }
+                    currentUser?.let { user ->
+                        if (user.isAdmin) {
+                            val others = familyMembers.filter { it.username != user.username }
+                            if (others.isNotEmpty()) {
+                                val newHead = others.random()
+                                db.collection("users").document(newHead.id).update("isAdmin", true)
                             }
-                            d.dismiss()
                         }
-                        .setNegativeButton("Отмена") { d, _ -> d.dismiss() }.show()
+                        db.collection("users").document(user.id).delete()
+                            .addOnSuccessListener {
+                                val intent = Intent(this, MainActivity::class.java)
+                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                startActivity(intent)
+                                finish()
+                            }
+                    }
+                    dialog.dismiss()
                 }
 
                 logoutBtn.setOnClickListener {
-                    val prefs = getSharedPreferences("subtracker_prefs", MODE_PRIVATE)
-                    prefs.edit().clear().apply()
-                    Toast.makeText(this, "Вы вышли из аккаунта", Toast.LENGTH_SHORT).show()
+                    auth.signOut()
                     val intent = Intent(this, MainActivity::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     startActivity(intent)
                     finish()
                 }
             }
-    }
-
-    private fun mapChoiceToIconResName(choice: String?): String? = when(choice) {
-        "Netflix" -> "netflix"
-        "YouTube" -> "youtube"
-        "Spotify" -> "spotify"
-        "Google One" -> "google_one"
-        "Amazon Prime" -> "amazon_prime"
-        "Disney+" -> "disney"
-        "VK Music" -> "vk_music"
-        else -> null
     }
 }

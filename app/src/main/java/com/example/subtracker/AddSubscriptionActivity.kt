@@ -9,6 +9,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Calendar
 
+
 class AddSubscriptionActivity : AppCompatActivity() {
 
     private lateinit var db: FirebaseFirestore
