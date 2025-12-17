@@ -54,7 +54,6 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     private fun createFamily(uid: String, username: String, familyName: String, familyCode: String) {
-        // Создаём семью
         val familyData = hashMapOf(
             "familyName" to familyName,
             "createdBy" to uid
@@ -62,19 +61,18 @@ class RegisterActivity : AppCompatActivity() {
 
         db.collection("families").document(familyCode).set(familyData)
             .addOnSuccessListener {
-                // Создаём пользователя как админа через FirebaseUser
-                val user = FirebaseUser(
-                    id = uid,
-                    username = username,
-                    familyCode = familyCode,
-                    familyName = familyName,
-                    isAdmin = true
+                // Создаем пользователя как admin
+                val userData = hashMapOf(
+                    "uid" to uid,
+                    "username" to username,
+                    "familyCode" to familyCode,
+                    "familyName" to familyName,
+                    "role" to "admin",
+                    "provider" to "manual"
                 )
 
-                db.collection("users").document(uid).set(user)
-                    .addOnSuccessListener {
-                        showFamilyCodeDialog(familyCode)
-                    }
+                db.collection("users").document(uid).set(userData)
+                    .addOnSuccessListener { showFamilyCodeDialog(familyCode) }
                     .addOnFailureListener {
                         Toast.makeText(this, "Ошибка при создании пользователя", Toast.LENGTH_SHORT).show()
                     }

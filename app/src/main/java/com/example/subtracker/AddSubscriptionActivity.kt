@@ -64,11 +64,33 @@ class AddSubscriptionActivity : AppCompatActivity() {
             val iconName = when (iconChoice) {
                 "Netflix" -> "netflix"
                 "YouTube" -> "youtube"
-                "Spotify" -> "spotify"
-                "Google One" -> "google_one"
-                "Amazon Prime" -> "amazon_prime"
+                "Ivi" -> "ivi"
+                "Okko" -> "okko"
+                "Megogo" -> "megogo"
+                "Amediateka" -> "amediateka"
                 "Disney+" -> "disney"
+                "Amazon Prime" -> "amazon_prime"
+
+                // Музыка
+                "Spotify" -> "spotify"
                 "VK Music" -> "vk_music"
+                "Yandex Music" -> "yandex_music"
+
+                // Игры
+                "Steam" -> "steam"
+                "Epic Games" -> "epic_games"
+                "PlayStation Plus" -> "ps_plus"
+                "Xbox Game Pass" -> "xbox_gamepass"
+
+                // Облачные сервисы
+                "Google One" -> "google_one"
+                "Яндекс Диск" -> "yandex_disk"
+                "Облако Mail.ru" -> "mailru_cloud"
+                "Dropbox" -> "dropbox"
+
+                // Социальные сети / доп. подписки
+                "TikTok" -> "tiktok"
+                "Telegram Premium" -> "telegram_premium"
                 else -> "ic_default"
             }
 

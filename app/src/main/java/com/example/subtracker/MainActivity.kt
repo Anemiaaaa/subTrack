@@ -10,7 +10,6 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
@@ -26,7 +25,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        FirebaseApp.initializeApp(this)
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
 
@@ -41,12 +39,10 @@ class MainActivity : AppCompatActivity() {
         loginButton.setOnClickListener {
             val username = usernameInput.text.toString().trim()
             val familyCode = familyCodeInput.text.toString().trim()
-
             if (username.isEmpty() || familyCode.isEmpty()) {
                 Toast.makeText(this, "Введите имя и код семьи", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-
             loginWithFamilyCode(username, familyCode)
         }
 
@@ -54,34 +50,50 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, RegisterActivity::class.java))
         }
 
-        googleButton.setOnClickListener {
-            signInWithGoogle()
-        }
+        googleButton.setOnClickListener { signInWithGoogle() }
     }
 
-    // 🔹 Вход по имени+коду семьи
     private fun loginWithFamilyCode(username: String, familyCode: String) {
-        db.collection("families").document(familyCode).get()
-            .addOnSuccessListener { familyDoc ->
-                if (!familyDoc.exists()) {
-                    Toast.makeText(this, "Семья с таким кодом не найдена", Toast.LENGTH_SHORT).show()
-                    return@addOnSuccessListener
-                }
-
-                db.collection("users")
-                    .whereEqualTo("username", username)
-                    .whereEqualTo("familyCode", familyCode)
-                    .get()
-                    .addOnSuccessListener { result ->
-                        val userDoc = result.documents.firstOrNull()
-                        if (userDoc != null) {
-                            openMain(username, familyCode)
-                        } else {
-                            createMemberUser(username, familyCode)
+        db.collection("users")
+            .whereEqualTo("username", username)
+            .whereEqualTo("familyCode", familyCode)
+            .get()
+            .addOnSuccessListener { result ->
+                val userDoc = result.documents.firstOrNull()
+                if (userDoc != null) {
+                    // Есть пользователь, используем его UID
+                    val uid = userDoc.getString("uid")!!
+                    openMain(username, familyCode)
+                } else {
+                    // Пользователь не найден — создаем нового
+                    val currentUser = auth.currentUser
+                    if (currentUser == null) {
+                        auth.signInAnonymously().addOnSuccessListener { res ->
+                            val uid = res.user!!.uid
+                            createUserDoc(uid, username, familyCode)
                         }
+                    } else {
+                        createUserDoc(currentUser.uid, username, familyCode)
                     }
+                }
             }
+            .addOnFailureListener { e -> Toast.makeText(this, "Ошибка входа: ${e.message}", Toast.LENGTH_SHORT).show() }
     }
+
+    private fun createUserDoc(uid: String, username: String, familyCode: String) {
+        val userData = hashMapOf(
+            "uid" to uid,
+            "username" to username,
+            "familyCode" to familyCode,
+            "role" to "member",
+            "provider" to "manual"
+        )
+        db.collection("users").document(uid)
+            .set(userData)
+            .addOnSuccessListener { openMain(username, familyCode) }
+            .addOnFailureListener { e -> Toast.makeText(this, "Ошибка создания пользователя: ${e.message}", Toast.LENGTH_SHORT).show() }
+    }
+
 
     private fun createMemberUser(username: String, familyCode: String) {
         auth.signInAnonymously().addOnSuccessListener { result ->
@@ -94,9 +106,7 @@ class MainActivity : AppCompatActivity() {
                 "provider" to "manual"
             )
             db.collection("users").document(uid).set(userData)
-                .addOnSuccessListener {
-                    openMain(username, familyCode)
-                }
+                .addOnSuccessListener { openMain(username, familyCode) }
         }
     }
 
@@ -108,7 +118,6 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
-    // 🔹 Google Sign-In
     private fun setupGoogleSignIn() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
@@ -139,66 +148,43 @@ class MainActivity : AppCompatActivity() {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential)
             .addOnSuccessListener {
-                val user = auth.currentUser!! // <- FirebaseUser
-
-                // Можно сразу взять displayName и email
+                val user = auth.currentUser!!
                 val username = user.displayName ?: "User"
                 val uid = user.uid
 
-                // 🔹 Проверяем есть ли пользователь в Firestore
                 db.collection("users").document(uid).get()
                     .addOnSuccessListener { doc ->
                         if (doc.exists()) {
-                            // Пользователь уже есть
                             val familyCode = doc.getString("familyCode") ?: ""
                             openMain(username, familyCode)
                         } else {
-                            // Новый пользователь, вводим код семьи
-                            val input = EditText(this)
-                            input.hint = "Введите код семьи"
-                            AlertDialog.Builder(this)
-                                .setTitle("Вход через Google")
-                                .setMessage("Введите код семьи")
-                                .setView(input)
-                                .setPositiveButton("OK") { _, _ ->
-                                    val familyCode = input.text.toString().trim()
-                                    if (familyCode.isEmpty()) return@setPositiveButton
-
-                                    // Создаем пользователя
-                                    val userData = hashMapOf(
-                                        "uid" to uid,
-                                        "username" to username,
-                                        "familyCode" to familyCode,
-                                        "role" to "member",
-                                        "provider" to "google"
-                                    )
-                                    db.collection("users").document(uid).set(userData)
-                                        .addOnSuccessListener { openMain(username, familyCode) }
-                                }
-                                .setNegativeButton("Отмена", null)
-                                .show()
+                            promptFamilyCode(uid, username)
                         }
                     }
             }
     }
 
-
-    private fun checkOrCreateGoogleUser(uid: String, username: String, familyCode: String) {
-        db.collection("users").document(uid).get()
-            .addOnSuccessListener { doc ->
-                if (doc.exists()) {
-                    openMain(username, doc.getString("familyCode") ?: familyCode)
-                } else {
-                    val userData = hashMapOf(
-                        "uid" to uid,
-                        "username" to username,
-                        "familyCode" to familyCode,
-                        "role" to "member",
-                        "provider" to "google"
-                    )
-                    db.collection("users").document(uid).set(userData)
-                        .addOnSuccessListener { openMain(username, familyCode) }
-                }
+    private fun promptFamilyCode(uid: String, username: String) {
+        val input = EditText(this)
+        input.hint = "Введите код семьи"
+        AlertDialog.Builder(this)
+            .setTitle("Вход через Google")
+            .setMessage("Введите код семьи")
+            .setView(input)
+            .setPositiveButton("OK") { _, _ ->
+                val familyCode = input.text.toString().trim()
+                if (familyCode.isEmpty()) return@setPositiveButton
+                val userData = hashMapOf(
+                    "uid" to uid,
+                    "username" to username,
+                    "familyCode" to familyCode,
+                    "role" to "member",
+                    "provider" to "google"
+                )
+                db.collection("users").document(uid).set(userData)
+                    .addOnSuccessListener { openMain(username, familyCode) }
             }
+            .setNegativeButton("Отмена", null)
+            .show()
     }
 }

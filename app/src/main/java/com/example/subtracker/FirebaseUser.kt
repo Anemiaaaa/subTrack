@@ -1,12 +1,9 @@
 package com.example.subtracker
 
-import com.google.firebase.firestore.DocumentId
-
 data class FirebaseUser(
-    @DocumentId
-    val id: String = "",             // ID документа пользователя
+    val id: String = "",
     val username: String = "",
     val familyCode: String = "",
     val familyName: String = "",
-    val isAdmin: Boolean = false
+    val role: String = "member"  // "admin" или "member"
 )

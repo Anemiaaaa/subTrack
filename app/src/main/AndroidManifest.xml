@@ -45,6 +45,9 @@
         <!-- Главный экран -->
         <activity android:name=".MainFrameActivity" />
 
+        <activity android:name=".StatsActivity" />
+
+
         <!-- Экран добавления подписки -->
         <activity android:name=".AddSubscriptionActivity" />
 

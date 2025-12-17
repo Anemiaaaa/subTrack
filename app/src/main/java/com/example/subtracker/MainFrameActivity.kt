@@ -14,16 +14,13 @@ import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
 import java.util.*
 
-
-
-
-
 class MainFrameActivity : AppCompatActivity() {
 
     private lateinit var subscriptionsContainer: LinearLayout
     private lateinit var textUsername: TextView
     private lateinit var familyCode: String
     private lateinit var username: String
+    private var currentUserRole: String = "member"
 
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
@@ -66,6 +63,15 @@ class MainFrameActivity : AppCompatActivity() {
             showFamilyInfoDialog()
         }
 
+        findViewById<ImageView>(R.id.nav_stats).setOnClickListener {
+            val intent = Intent(this, StatsActivity::class.java)
+            intent.putExtra("username", username)
+            intent.putExtra("familyCode", familyCode)
+            intent.putExtra("role", currentUserRole)
+            startActivity(intent)
+        }
+
+
         setupFilterButtons()
         loadSubscriptions()
     }
@@ -75,6 +81,7 @@ class MainFrameActivity : AppCompatActivity() {
         loadSubscriptions()
     }
 
+
     private fun setupFilterButtons() {
         db.collection("users")
             .whereEqualTo("familyCode", familyCode)
@@ -82,8 +89,9 @@ class MainFrameActivity : AppCompatActivity() {
             .addOnSuccessListener { snapshot ->
                 val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
                 val currentUser = familyMembers.find { it.username == username }
+                currentUserRole = currentUser?.role ?: "member"
 
-                btnFilterUsers.visibility = if (currentUser?.isAdmin == true) View.VISIBLE else View.GONE
+                btnFilterUsers.visibility = if (currentUserRole == "admin") View.VISIBLE else View.GONE
 
                 btnSortPrice.setOnClickListener {
                     if (sortMode == SortMode.PRICE) sortAsc = !sortAsc else { sortMode = SortMode.PRICE; sortAsc = true }
@@ -198,62 +206,82 @@ class MainFrameActivity : AppCompatActivity() {
             .setTitle(sub.name)
             .setItems(items) { dialog, which ->
                 when (which) {
-                    0 -> showEditSubscriptionDialog(sub)
-                    1 -> paySubscription(sub)
-                    2 -> deleteSubscription(sub)
+                    0 -> showEditSubscriptionDialog(sub) // редактирование
+                    1 -> paySubscription(sub)            // оплата
+                    2 -> confirmDeleteSubscription(sub)  // удаление с подтверждением
                 }
                 dialog.dismiss()
             }.show()
     }
 
-    // --- Методы редактирования, оплаты и удаления подписок ---
     private fun showEditSubscriptionDialog(sub: FirebaseSubscription) {
         val dialogView = layoutInflater.inflate(R.layout.activity_add_subscription, null)
         val nameInput = dialogView.findViewById<EditText>(R.id.editTextName)
         val priceInput = dialogView.findViewById<EditText>(R.id.editTextPrice)
         val periodSpinner = dialogView.findViewById<Spinner>(R.id.spinnerPeriodicity)
         val iconSpinner = dialogView.findViewById<Spinner>(R.id.spinnerIcon)
+        val saveButton = dialogView.findViewById<Button>(R.id.buttonSave)
 
         nameInput.setText(sub.name)
         priceInput.setText(sub.price.toString())
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Редактировать подписку")
             .setView(dialogView)
-            .setPositiveButton("Сохранить") { dialog, _ ->
-                val newName = nameInput.text.toString().trim().ifEmpty { sub.name }
-                val newPrice = priceInput.text.toString().toDoubleOrNull() ?: sub.price
-                val newPeriod = periodSpinner.selectedItem?.toString() ?: sub.periodicity
-                val newIconResName = mapChoiceToIconResName(iconSpinner.selectedItem?.toString()) ?: sub.iconResName
+            .create()
+        dialog.show()
 
-                db.collection("subscriptions").document(sub.id)
-                    .update(
-                        mapOf(
-                            "name" to newName,
-                            "price" to newPrice,
-                            "periodicity" to newPeriod,
-                            "iconResName" to newIconResName
-                        )
-                    ).addOnSuccessListener { loadSubscriptions() }
-                    .addOnFailureListener { e -> e.printStackTrace() }
+        saveButton.setOnClickListener {
+            val newName = nameInput.text.toString().trim().ifEmpty { sub.name }
+            val newPrice = priceInput.text.toString().toDoubleOrNull() ?: sub.price
+            val newPeriod = periodSpinner.selectedItem?.toString() ?: sub.periodicity
+            val newIconResName = mapChoiceToIconResName(iconSpinner.selectedItem?.toString()) ?: sub.iconResName
 
-                dialog.dismiss()
-            }
-            .setNegativeButton("Отмена") { d, _ -> d.dismiss() }
+            db.collection("subscriptions").document(sub.id)
+                .update(
+                    mapOf(
+                        "name" to newName,
+                        "price" to newPrice,
+                        "periodicity" to newPeriod,
+                        "iconResName" to newIconResName
+                    )
+                )
+                .addOnSuccessListener {
+                    loadSubscriptions()
+                    dialog.dismiss()
+                }
+                .addOnFailureListener { e -> e.printStackTrace() }
+        }
+    }
+
+
+    // --- Подтверждение удаления ---
+    private fun confirmDeleteSubscription(sub: FirebaseSubscription) {
+        AlertDialog.Builder(this)
+            .setTitle("Удалить подписку?")
+            .setMessage("Вы уверены, что хотите удалить ${sub.name}?")
+            .setPositiveButton("Удалить") { _, _ -> deleteSubscription(sub) }
+            .setNegativeButton("Отмена", null)
             .show()
     }
 
+
+
+    // --- Оплата подписки с корректным учётом периода ---
     private fun paySubscription(sub: FirebaseSubscription) {
         val cal = Calendar.getInstance().apply {
             timeInMillis = maxOf(System.currentTimeMillis(), sub.nextPaymentDate)
         }
+
         when (sub.periodicity.lowercase(Locale.getDefault())) {
-            "день" -> cal.add(Calendar.DAY_OF_YEAR, 1)
-            "неделя" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
-            "месяц" -> cal.add(Calendar.MONTH, 1)
-            "квартал" -> cal.add(Calendar.MONTH, 3)
-            "год" -> cal.add(Calendar.YEAR, 1)
-            else -> cal.add(Calendar.MONTH, 1)
+            "день", "каждый день" -> cal.add(Calendar.DAY_OF_YEAR, 1)
+            "неделя", "каждую неделю" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
+            "месяц", "каждый месяц" -> cal.add(Calendar.MONTH, 1)
+            "квартал", "каждый квартал" -> cal.add(Calendar.MONTH, 3)
+            "год", "каждый год" -> cal.add(Calendar.YEAR, 1)
+            else -> {
+                // на всякий случай оставляем как есть
+            }
         }
 
         db.collection("subscriptions").document(sub.id)
@@ -262,6 +290,7 @@ class MainFrameActivity : AppCompatActivity() {
             .addOnFailureListener { it.printStackTrace() }
     }
 
+    // --- Удаление ---
     private fun deleteSubscription(sub: FirebaseSubscription) {
         db.collection("subscriptions").document(sub.id)
             .delete()
@@ -269,18 +298,43 @@ class MainFrameActivity : AppCompatActivity() {
             .addOnFailureListener { it.printStackTrace() }
     }
 
+
     private fun mapChoiceToIconResName(choice: String?): String? = when (choice) {
+        // Видео стриминг
         "Netflix" -> "netflix"
         "YouTube" -> "youtube"
-        "Spotify" -> "spotify"
-        "Google One" -> "google_one"
-        "Amazon Prime" -> "amazon_prime"
+        "Ivi" -> "ivi"
+        "Okko" -> "okko"
+        "Megogo" -> "megogo"
+        "Amediateka" -> "amediateka"
         "Disney+" -> "disney"
+        "Amazon Prime" -> "amazon_prime"
+
+        // Музыка
+        "Spotify" -> "spotify"
         "VK Music" -> "vk_music"
+        "Yandex Music" -> "yandex_music"
+
+        // Игры
+        "Steam" -> "steam"
+        "Epic Games" -> "epic_games"
+        "PlayStation Plus" -> "ps_plus"
+        "Xbox Game Pass" -> "xbox_gamepass"
+
+        // Облачные сервисы
+        "Google One" -> "google_one"
+        "Яндекс Диск" -> "yandex_disk"
+        "Облако Mail.ru" -> "mailru_cloud"
+        "Dropbox" -> "dropbox"
+
+        // Социальные сети / доп. подписки
+        "TikTok" -> "tiktok"
+        "Telegram Premium" -> "telegram_premium"
+
         else -> null
     }
 
-    // --- Данные о семье ---
+
     private fun showFamilyInfoDialog() {
         db.collection("users")
             .whereEqualTo("familyCode", familyCode)
@@ -289,6 +343,7 @@ class MainFrameActivity : AppCompatActivity() {
                 val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
                 val currentUser = familyMembers.find { it.username == username }
                 val familyNameValue = familyMembers.firstOrNull()?.familyName ?: "—"
+                currentUserRole = currentUser?.role ?: "member"
 
                 val dialogView = layoutInflater.inflate(R.layout.family_info_dialog, null)
                 val familyNameText = dialogView.findViewById<TextView>(R.id.familyName)
@@ -299,22 +354,22 @@ class MainFrameActivity : AppCompatActivity() {
                 val leaveBtn = dialogView.findViewById<Button>(R.id.leaveFamilyButton)
                 val logoutBtn = dialogView.findViewById<Button>(R.id.logoutButton)
 
+                roleText.text = "Роль: ${if (currentUserRole == "admin") "глава" else "участник"}"
                 familyNameText.text = "Семья: $familyNameValue"
                 familyCodeText.text = "Код семьи: $familyCode"
-                roleText.text = "Роль: ${if (currentUser?.isAdmin == true) "глава" else "участник"}"
 
                 membersContainer.removeAllViews()
                 familyMembers.forEach { member ->
-                    val itemLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0,8,0,8) }
+                    val itemLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 8, 0, 8) }
                     val avatar = TextView(this).apply {
                         text = member.username.first().uppercaseChar().toString()
                         textSize = 18f
                         gravity = Gravity.CENTER
                         setTextColor(Color.WHITE)
                         background = ContextCompat.getDrawable(this@MainFrameActivity, R.drawable.circle_bg)
-                        setPadding(20,10,20,10)
+                        setPadding(20, 10, 20, 10)
                     }
-                    val nameText = TextView(this).apply { text = member.username; textSize = 18f; setPadding(16,0,0,0) }
+                    val nameText = TextView(this).apply { text = member.username; textSize = 18f; setPadding(16, 0, 0, 0) }
                     itemLayout.addView(avatar)
                     itemLayout.addView(nameText)
                     membersContainer.addView(itemLayout)
@@ -331,11 +386,11 @@ class MainFrameActivity : AppCompatActivity() {
 
                 leaveBtn.setOnClickListener {
                     currentUser?.let { user ->
-                        if (user.isAdmin) {
+                        if (user.role == "admin") {
                             val others = familyMembers.filter { it.username != user.username }
                             if (others.isNotEmpty()) {
                                 val newHead = others.random()
-                                db.collection("users").document(newHead.id).update("isAdmin", true)
+                                db.collection("users").document(newHead.id).update("role", "admin")
                             }
                         }
                         db.collection("users").document(user.id).delete()
