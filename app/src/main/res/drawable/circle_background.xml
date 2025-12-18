@@ -1,0 +1,9 @@
+<!-- res/drawable/circle_background.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="#FFFFFF"/> <!-- фон, белый или любой другой -->
+    <size android:width="100dp" android:height="100dp"/>
+    <stroke
+        android:width="2dp"
+        android:color="#BDC3C7"/> <!-- опциональная рамка -->
+</shape>

@@ -28,6 +28,7 @@ class MainFrameActivity : AppCompatActivity() {
     private lateinit var btnSortPrice: TextView
     private lateinit var btnSortDate: TextView
     private lateinit var btnFilterUsers: TextView
+    private lateinit var navAdd: ImageButton
 
     private enum class SortMode { NONE, PRICE, DATE }
     private var sortMode = SortMode.NONE
@@ -37,30 +38,31 @@ class MainFrameActivity : AppCompatActivity() {
 
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
 
+    private var familyMembers: List<FirebaseUser> = emptyList()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.main_frame)
 
+        // ===== UI =====
         subscriptionsContainer = findViewById(R.id.subscriptionsContainer)
         textUsername = findViewById(R.id.textUsername)
         btnSortPrice = findViewById(R.id.btnSortPrice)
         btnSortDate = findViewById(R.id.btnSortDate)
         btnFilterUsers = findViewById(R.id.btnFilterUsers)
+        navAdd = findViewById(R.id.nav_add)
 
         username = intent.getStringExtra("username") ?: return
         familyCode = intent.getStringExtra("familyCode") ?: return
 
         textUsername.text = "Привет, $username"
 
-        findViewById<ImageButton>(R.id.nav_add).setOnClickListener {
+        // ===== НАВИГАЦИЯ =====
+        navAdd.setOnClickListener {
             val intent = Intent(this, AddSubscriptionActivity::class.java)
             intent.putExtra("username", username)
             intent.putExtra("familyCode", familyCode)
             startActivity(intent)
-        }
-
-        findViewById<ImageButton>(R.id.btnFamilyInfo).setOnClickListener {
-            showFamilyInfoDialog()
         }
 
         findViewById<ImageView>(R.id.nav_stats).setOnClickListener {
@@ -71,40 +73,51 @@ class MainFrameActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
+        findViewById<ImageButton>(R.id.btnFamilyInfo).setOnClickListener {
+            showFamilyInfoDialog()
+        }
 
+        // ===== Инициализация фильтров =====
         setupFilterButtons()
-        loadSubscriptions()
     }
 
     override fun onResume() {
         super.onResume()
+        // Перезагрузка подписок после возвращения на экран
         loadSubscriptions()
     }
 
-
+    // ================= Setup фильтров =================
     private fun setupFilterButtons() {
         db.collection("users")
             .whereEqualTo("familyCode", familyCode)
             .get()
             .addOnSuccessListener { snapshot ->
-                val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
+                familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
                 val currentUser = familyMembers.find { it.username == username }
                 currentUserRole = currentUser?.role ?: "member"
 
                 btnFilterUsers.visibility = if (currentUserRole == "admin") View.VISIBLE else View.GONE
 
+                // 🔹 Загружаем подписки сразу после определения роли
+                loadSubscriptions()
+
+                // ===== Настройка сортировки =====
                 btnSortPrice.setOnClickListener {
-                    if (sortMode == SortMode.PRICE) sortAsc = !sortAsc else { sortMode = SortMode.PRICE; sortAsc = true }
+                    if (sortMode == SortMode.PRICE) sortAsc = !sortAsc
+                    else { sortMode = SortMode.PRICE; sortAsc = true }
                     updateButtonsUI()
                     loadSubscriptions()
                 }
 
                 btnSortDate.setOnClickListener {
-                    if (sortMode == SortMode.DATE) sortAsc = !sortAsc else { sortMode = SortMode.DATE; sortAsc = true }
+                    if (sortMode == SortMode.DATE) sortAsc = !sortAsc
+                    else { sortMode = SortMode.DATE; sortAsc = true }
                     updateButtonsUI()
                     loadSubscriptions()
                 }
 
+                // ===== Фильтр по пользователю =====
                 btnFilterUsers.setOnClickListener {
                     if (familyMembers.isEmpty()) return@setOnClickListener
                     val names = familyMembers.map { it.username }.toTypedArray()
@@ -152,18 +165,25 @@ class MainFrameActivity : AppCompatActivity() {
         }
     }
 
+    // ================= Load Subscriptions =================
     private fun loadSubscriptions() {
         var query = db.collection("subscriptions").whereEqualTo("familyCode", familyCode)
-        if (filterByUserEnabled && filterUsername != null) query = query.whereEqualTo("ownerUsername", filterUsername)
+
+        if (currentUserRole != "admin") {
+            query = query.whereEqualTo("ownerUsername", username)
+        } else if (filterByUserEnabled && filterUsername != null) {
+            query = query.whereEqualTo("ownerUsername", filterUsername)
+        }
 
         query.get().addOnSuccessListener { snapshot ->
             subscriptionsContainer.removeAllViews()
 
             if (snapshot.isEmpty) {
-                val noSubs = TextView(this).apply {
-                    text = "Подписок нет"; gravity = Gravity.CENTER; textSize = 18f
-                }
-                subscriptionsContainer.addView(noSubs)
+                subscriptionsContainer.addView(TextView(this).apply {
+                    text = "Подписок нет"
+                    textSize = 18f
+                    gravity = Gravity.CENTER
+                })
                 return@addOnSuccessListener
             }
 
@@ -179,6 +199,7 @@ class MainFrameActivity : AppCompatActivity() {
         }
     }
 
+    // ================= Создание карточки подписки =================
     private fun createSubscriptionCard(sub: FirebaseSubscription): View {
         val card = layoutInflater.inflate(R.layout.sub_card_item, subscriptionsContainer, false)
         val iconImage = card.findViewById<ImageView>(R.id.iconImage)
@@ -206,9 +227,9 @@ class MainFrameActivity : AppCompatActivity() {
             .setTitle(sub.name)
             .setItems(items) { dialog, which ->
                 when (which) {
-                    0 -> showEditSubscriptionDialog(sub) // редактирование
-                    1 -> paySubscription(sub)            // оплата
-                    2 -> confirmDeleteSubscription(sub)  // удаление с подтверждением
+                    0 -> showEditSubscriptionDialog(sub)
+                    1 -> paySubscription(sub)
+                    2 -> confirmDeleteSubscription(sub)
                 }
                 dialog.dismiss()
             }.show()
@@ -267,28 +288,50 @@ class MainFrameActivity : AppCompatActivity() {
 
 
 
-    // --- Оплата подписки с корректным учётом периода ---
     private fun paySubscription(sub: FirebaseSubscription) {
         val cal = Calendar.getInstance().apply {
             timeInMillis = maxOf(System.currentTimeMillis(), sub.nextPaymentDate)
         }
 
+        // 👉 считаем следующую дату
         when (sub.periodicity.lowercase(Locale.getDefault())) {
             "день", "каждый день" -> cal.add(Calendar.DAY_OF_YEAR, 1)
             "неделя", "каждую неделю" -> cal.add(Calendar.WEEK_OF_YEAR, 1)
             "месяц", "каждый месяц" -> cal.add(Calendar.MONTH, 1)
             "квартал", "каждый квартал" -> cal.add(Calendar.MONTH, 3)
             "год", "каждый год" -> cal.add(Calendar.YEAR, 1)
-            else -> {
-                // на всякий случай оставляем как есть
-            }
         }
 
+        // 👉 обновляем подписку
         db.collection("subscriptions").document(sub.id)
             .update("nextPaymentDate", cal.timeInMillis)
-            .addOnSuccessListener { loadSubscriptions() }
-            .addOnFailureListener { it.printStackTrace() }
+            .addOnSuccessListener {
+
+                val paymentData = hashMapOf(
+                    "familyCode" to sub.familyCode,
+                    "subscriptionName" to sub.name,
+                    "amount" to sub.price,
+                    "ownerUid" to auth.currentUser?.uid,
+                    "ownerUsername" to sub.ownerUsername,
+                    "iconResName" to sub.iconResName,
+                    "paidAt" to System.currentTimeMillis()
+                )
+
+                db.collection("payments")
+                    .add(paymentData)
+                    .addOnSuccessListener {
+                        loadSubscriptions()
+                    }
+                    .addOnFailureListener {
+                        it.printStackTrace()
+                    }
+            }
+            .addOnFailureListener {
+                it.printStackTrace()
+            }
     }
+
+
 
     // --- Удаление ---
     private fun deleteSubscription(sub: FirebaseSubscription) {
@@ -336,81 +379,126 @@ class MainFrameActivity : AppCompatActivity() {
 
 
     private fun showFamilyInfoDialog() {
-        db.collection("users")
-            .whereEqualTo("familyCode", familyCode)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
-                val currentUser = familyMembers.find { it.username == username }
-                val familyNameValue = familyMembers.firstOrNull()?.familyName ?: "—"
-                currentUserRole = currentUser?.role ?: "member"
+        db.collection("families").document(familyCode).get()
+            .addOnSuccessListener { familyDoc ->
+                val familyNameValue = familyDoc.getString("familyName") ?: "—"
 
-                val dialogView = layoutInflater.inflate(R.layout.family_info_dialog, null)
-                val familyNameText = dialogView.findViewById<TextView>(R.id.familyName)
-                val familyCodeText = dialogView.findViewById<TextView>(R.id.familyCode)
-                val membersContainer = dialogView.findViewById<LinearLayout>(R.id.familyMembersContainer)
-                val roleText = dialogView.findViewById<TextView>(R.id.familyRole)
-                val closeBtn = dialogView.findViewById<Button>(R.id.btnCloseDialog)
-                val leaveBtn = dialogView.findViewById<Button>(R.id.leaveFamilyButton)
-                val logoutBtn = dialogView.findViewById<Button>(R.id.logoutButton)
+                db.collection("users")
+                    .whereEqualTo("familyCode", familyCode)
+                    .get()
+                    .addOnSuccessListener { snapshot ->
+                        val familyMembers = snapshot.documents.mapNotNull { it.toObject(FirebaseUser::class.java) }
+                        val currentUser = familyMembers.find { it.username == username }
+                        currentUserRole = currentUser?.role ?: "member"
 
-                roleText.text = "Роль: ${if (currentUserRole == "admin") "глава" else "участник"}"
-                familyNameText.text = "Семья: $familyNameValue"
-                familyCodeText.text = "Код семьи: $familyCode"
+                        val dialogView = layoutInflater.inflate(R.layout.family_info_dialog, null)
+                        val familyNameText = dialogView.findViewById<TextView>(R.id.familyName)
+                        val familyCodeText = dialogView.findViewById<TextView>(R.id.familyCode)
+                        val membersContainer = dialogView.findViewById<LinearLayout>(R.id.familyMembersContainer)
+                        val roleText = dialogView.findViewById<TextView>(R.id.familyRole)
+                        val closeBtn = dialogView.findViewById<Button>(R.id.btnCloseDialog)
+                        val leaveBtn = dialogView.findViewById<Button>(R.id.leaveFamilyButton)
+                        val logoutBtn = dialogView.findViewById<Button>(R.id.logoutButton)
 
-                membersContainer.removeAllViews()
-                familyMembers.forEach { member ->
-                    val itemLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, 8, 0, 8) }
-                    val avatar = TextView(this).apply {
-                        text = member.username.first().uppercaseChar().toString()
-                        textSize = 18f
-                        gravity = Gravity.CENTER
-                        setTextColor(Color.WHITE)
-                        background = ContextCompat.getDrawable(this@MainFrameActivity, R.drawable.circle_bg)
-                        setPadding(20, 10, 20, 10)
-                    }
-                    val nameText = TextView(this).apply { text = member.username; textSize = 18f; setPadding(16, 0, 0, 0) }
-                    itemLayout.addView(avatar)
-                    itemLayout.addView(nameText)
-                    membersContainer.addView(itemLayout)
-                }
+                        // Настроим текст
+                        roleText.text = "Роль: ${if (currentUserRole == "admin") "глава" else "участник"}"
+                        familyNameText.text = "Семья: $familyNameValue"
+                        familyCodeText.text = "Код семьи: $familyCode"
 
-                val dialog = AlertDialog.Builder(this)
-                    .setView(dialogView)
-                    .create()
-                dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-                dialog.show()
-                dialog.window?.setLayout(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-
-                closeBtn.setOnClickListener { dialog.dismiss() }
-
-                leaveBtn.setOnClickListener {
-                    currentUser?.let { user ->
-                        if (user.role == "admin") {
-                            val others = familyMembers.filter { it.username != user.username }
-                            if (others.isNotEmpty()) {
-                                val newHead = others.random()
-                                db.collection("users").document(newHead.id).update("role", "admin")
+                        // Поделиться кодом семьи
+                        familyCodeText.setOnClickListener {
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, "Присоединяйтесь к нашей семье! Код семьи: $familyCode")
+                                type = "text/plain"
                             }
+                            startActivity(Intent.createChooser(shareIntent, "Поделиться кодом семьи через"))
                         }
-                        db.collection("users").document(user.id).delete()
-                            .addOnSuccessListener {
-                                val intent = Intent(this, MainActivity::class.java)
-                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                                startActivity(intent)
-                                finish()
-                            }
-                    }
-                    dialog.dismiss()
-                }
 
-                logoutBtn.setOnClickListener {
-                    auth.signOut()
-                    val intent = Intent(this, MainActivity::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                    finish()
-                }
+                        // Создаем карточки участников
+                        membersContainer.removeAllViews()
+                        familyMembers.forEach { member ->
+                            val itemLayout = LinearLayout(this).apply {
+                                orientation = LinearLayout.HORIZONTAL
+                                setPadding(16, 12, 16, 12)
+                                gravity = Gravity.CENTER_VERTICAL
+                                setBackgroundResource(R.drawable.member_card_bg) // нужно создать drawable с тенью/отступами
+                            }
+
+                            val avatar = TextView(this).apply {
+                                text = member.username.first().uppercaseChar().toString()
+                                textSize = 18f
+                                gravity = Gravity.CENTER
+                                setTextColor(Color.WHITE)
+                                background = ContextCompat.getDrawable(this@MainFrameActivity, R.drawable.circle_bg)
+                                setPadding(24, 16, 24, 16)
+                            }
+
+                            val nameText = TextView(this).apply {
+                                text = member.username
+                                textSize = 18f
+                                setPadding(16, 0, 0, 0)
+                                // если это глава семьи, выделяем цветом
+                                if (member.role == "admin") setTextColor(ContextCompat.getColor(this@MainFrameActivity, R.color.gold))
+                            }
+
+                            // Если это текущий пользователь, добавляем бордер или фон
+                            if (member.username == username) {
+                                itemLayout.background = ContextCompat.getDrawable(this, R.drawable.current_user_card_bg)
+                            }
+
+                            itemLayout.addView(avatar)
+                            itemLayout.addView(nameText)
+                            membersContainer.addView(itemLayout)
+                        }
+
+                        // Создаем диалог
+                        val dialog = AlertDialog.Builder(this)
+                            .setView(dialogView)
+                            .create()
+
+                        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+                        dialog.show()
+                        dialog.window?.setLayout(
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT
+                        )
+
+                        // Кнопка закрыть
+                        closeBtn.setOnClickListener { dialog.dismiss() }
+
+                        // Кнопка покинуть семью
+                        leaveBtn.setOnClickListener {
+                            currentUser?.let { user ->
+                                if (user.role == "admin") {
+                                    val others = familyMembers.filter { it.username != user.username }
+                                    if (others.isNotEmpty()) {
+                                        val newHead = others.random()
+                                        db.collection("users").document(newHead.id).update("role", "admin")
+                                    }
+                                }
+                                db.collection("users").document(user.id).delete()
+                                    .addOnSuccessListener {
+                                        val intent = Intent(this, MainActivity::class.java)
+                                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                                        startActivity(intent)
+                                        finish()
+                                    }
+                            }
+                            dialog.dismiss()
+                        }
+
+                        // Кнопка выход
+                        logoutBtn.setOnClickListener {
+                            auth.signOut()
+                            val intent = Intent(this, MainActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            startActivity(intent)
+                            finish()
+                        }
+                    }
             }
     }
+
+
 }

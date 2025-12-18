@@ -146,14 +146,6 @@
             android:src="@drawable/home"
             android:contentDescription="Дом"/>
 
-        <ImageButton
-            android:id="@+id/nav_calendar"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:src="@drawable/calendar"
-            android:contentDescription="Календарь"/>
 
         <FrameLayout
             android:layout_width="0dp"
@@ -163,22 +155,45 @@
 
             <ImageView
                 android:id="@+id/nav_stats"
-                android:layout_width="71dp"
-                android:layout_height="56dp"
+                android:layout_width="55dp"
+                android:layout_height="52dp"
                 android:layout_gravity="center"
-                android:src="@drawable/grafic"
+                android:contentDescription="Статистика"
                 android:scaleType="centerCrop"
-                android:contentDescription="Статистика"/>
+                android:src="@drawable/history" />
         </FrameLayout>
 
-        <ImageButton
-            android:id="@+id/nav_add"
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:src="@drawable/plus"
-            android:contentDescription="Добавить подписку"/>
+            android:background="@android:color/transparent">
+
+            <ImageView
+                android:id="@+id/nav_add"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_gravity="center"
+                android:contentDescription="Добавить подписку"
+                android:scaleType="centerCrop"
+                android:src="@drawable/plus" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent">
+
+            <ImageView
+                android:id="@+id/nav_settings"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:layout_gravity="center"
+                android:contentDescription="Настройки"
+                android:scaleType="centerCrop"
+                android:src="@drawable/settings" />
+        </FrameLayout>
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

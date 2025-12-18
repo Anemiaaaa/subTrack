@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -10,124 +11,84 @@
         android:id="@+id/statsTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Статистика расходов"
+        android:text="История оплат"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:textColor="#000000"
-        android:layout_marginTop="60dp"
         android:layout_marginStart="16dp"
+        android:layout_marginTop="24dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"/>
 
-    <!-- Общие расходы семьи (видно только главе) -->
-    <TextView
-        android:id="@+id/familyTotalText"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:text="Общие расходы семьи: 0₽"
-        android:textSize="18sp"
-        android:textColor="#000000"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        app:layout_constraintTop_toBottomOf="@id/statsTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
-
-    <!-- Scroll контейнер для всех списков -->
+    <!-- История -->
     <ScrollView
-        android:id="@+id/statsScrollView"
+        android:id="@+id/historyScroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="80dp"
-        app:layout_constraintTop_toBottomOf="@id/familyTotalText"
-        app:layout_constraintBottom_toTopOf="@id/nav_bar_container"
+        android:layout_marginTop="12dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/statsTitle"
+        app:layout_constraintBottom_toTopOf="@id/statsSummaryContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
-            android:id="@+id/statsContainer"
+            android:id="@+id/historyContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
-            android:divider="?android:attr/dividerVertical"
-            android:showDividers="middle">
-
-            <!-- Секция: расходы членов семьи (только для главы) -->
-            <LinearLayout
-                android:id="@+id/familyExpensesSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Расходы членов семьи"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#000000"
-                    android:layout_marginBottom="8dp"/>
-
-                <!-- Здесь будут динамически добавляться TextView с расходами каждого члена -->
-            </LinearLayout>
-
-            <!-- Секция: мои расходы по подпискам -->
-            <LinearLayout
-                android:id="@+id/myExpensesSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Мои расходы"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#000000"
-                    android:layout_marginBottom="8dp"/>
-
-                <!-- Здесь можно сделать список подписок с суммой -->
-                <LinearLayout
-                    android:id="@+id/mySubscriptionsContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-            </LinearLayout>
-
-            <!-- Секция: самые дорогие подписки -->
-            <LinearLayout
-                android:id="@+id/topSubscriptionsSection"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Самые дорогие подписки"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="#000000"
-                    android:layout_marginBottom="8dp"/>
-
-                <LinearLayout
-                    android:id="@+id/topSubscriptionsContainer"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-            </LinearLayout>
-
-        </LinearLayout>
+            android:padding="16dp"/>
     </ScrollView>
 
-    <!-- Нижняя панель -->
+    <!-- Нижний блок статистики -->
+    <LinearLayout
+        android:id="@+id/statsSummaryContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="@drawable/summary_card_bg"
+        android:elevation="4dp"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@id/nav_bar_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/mostExpensiveSub"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="💎 Самая дорогая подписка: —"
+            android:textSize="16sp"
+            android:textStyle="bold"/>
+
+        <TextView
+            android:id="@+id/monthlyCost"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📅 Стоимость за месяц: —"
+            android:textSize="15sp"
+            android:layout_marginTop="6dp"/>
+
+        <TextView
+            android:id="@+id/avgCost"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📊 Средняя подписка: —"
+            android:textSize="15sp"
+            android:layout_marginTop="6dp"/>
+
+        <TextView
+            android:id="@+id/totalSubscriptions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="📦 Количество подписок: —"
+            android:textSize="15sp"
+            android:layout_marginTop="6dp"/>
+    </LinearLayout>
+
+    <!-- Нижняя навигация -->
     <LinearLayout
         android:id="@+id/nav_bar_container"
         android:layout_width="0dp"
@@ -137,10 +98,10 @@
         android:weightSum="4"
         android:background="@drawable/rectangle"
         android:elevation="8dp"
+        android:padding="12dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:padding="12dp">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <ImageButton
             android:id="@+id/nav_home"
@@ -151,14 +112,6 @@
             android:src="@drawable/home"
             android:contentDescription="Дом"/>
 
-        <ImageButton
-            android:id="@+id/nav_calendar"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:src="@drawable/calendar"
-            android:contentDescription="Календарь"/>
 
         <FrameLayout
             android:layout_width="0dp"
@@ -168,21 +121,45 @@
 
             <ImageView
                 android:id="@+id/nav_stats"
-                android:layout_width="71dp"
-                android:layout_height="56dp"
+                android:layout_width="55dp"
+                android:layout_height="52dp"
                 android:layout_gravity="center"
-                android:src="@drawable/grafic"
+                android:contentDescription="Статистика"
                 android:scaleType="centerCrop"
-                android:contentDescription="Статистика"/>
+                android:src="@drawable/history" />
         </FrameLayout>
 
-        <ImageButton
-            android:id="@+id/nav_add"
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:src="@drawable/plus"
-            android:contentDescription="Добавить подписку"/>
+            android:background="@android:color/transparent">
+
+            <ImageView
+                android:id="@+id/nav_add"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_gravity="center"
+                android:contentDescription="Добавить подписку"
+                android:scaleType="centerCrop"
+                android:src="@drawable/plus" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent">
+
+            <ImageView
+                android:id="@+id/nav_settings"
+                android:layout_width="45dp"
+                android:layout_height="45dp"
+                android:layout_gravity="center"
+                android:contentDescription="Настройки"
+                android:scaleType="centerCrop"
+                android:src="@drawable/settings" />
+        </FrameLayout>
     </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

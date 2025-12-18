@@ -24,5 +24,7 @@
         <item>Custom (векторная)</item>
     </string-array>
 
+    <string name="empty_state_title">Пока нет подписок</string>
+    <string name="empty_state_description">Добавьте первую подписку, чтобы увидеть статистику</string>
 
 </resources>

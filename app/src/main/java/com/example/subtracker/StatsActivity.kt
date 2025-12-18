@@ -1,123 +1,183 @@
 package com.example.subtracker
 
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.SimpleDateFormat
+import java.util.*
 
 class StatsActivity : AppCompatActivity() {
 
-    private lateinit var statsContainer: LinearLayout
-    private lateinit var familyTotalText: TextView
-    private lateinit var mySubscriptionsContainer: LinearLayout
-    private lateinit var topSubscriptionsContainer: LinearLayout
+    private lateinit var historyContainer: LinearLayout
+    private lateinit var mostExpensiveSub: TextView
+    private lateinit var monthlyCost: TextView
+    private lateinit var avgCost: TextView
+    private lateinit var totalSubscriptions: TextView
+    private lateinit var statsSummaryContainer: LinearLayout
 
-    private lateinit var username: String
     private lateinit var familyCode: String
+    private lateinit var username: String
     private lateinit var role: String
 
     private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+    private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_stats)
 
-        statsContainer = findViewById(R.id.statsContainer)
-        familyTotalText = findViewById(R.id.familyTotalText)
-        mySubscriptionsContainer = findViewById(R.id.mySubscriptionsContainer)
-        topSubscriptionsContainer = findViewById(R.id.topSubscriptionsContainer)
-
-        username = intent.getStringExtra("username") ?: ""
-        familyCode = intent.getStringExtra("familyCode") ?: ""
+        // ===== INTENT =====
+        username = intent.getStringExtra("username") ?: return
+        familyCode = intent.getStringExtra("familyCode") ?: return
         role = intent.getStringExtra("role") ?: "member"
 
-        loadStats()
-        setupBottomNav()
+        // ===== UI =====
+        historyContainer = findViewById(R.id.historyContainer)
+        mostExpensiveSub = findViewById(R.id.mostExpensiveSub)
+        monthlyCost = findViewById(R.id.monthlyCost)
+        avgCost = findViewById(R.id.avgCost)
+        totalSubscriptions = findViewById(R.id.totalSubscriptions)
+        statsSummaryContainer = findViewById(R.id.statsSummaryContainer)
+
+        // ===== NAVIGATION =====
+        setupNavigation()
+
+        // ===== VISIBILITY =====
+        statsSummaryContainer.visibility =
+            if (role == "admin") View.VISIBLE else View.GONE
+
+        loadPayments()
     }
 
-    private fun loadStats() {
-        db.collection("subscriptions")
-            .whereEqualTo("familyCode", familyCode)
-            .get()
-            .addOnSuccessListener { snapshot ->
-                val subs = snapshot.documents.mapNotNull { it.toObject(FirebaseSubscription::class.java) }
+    // ================= NAVIGATION =================
+    private fun setupNavigation() {
 
-                statsContainer.removeAllViews()
-                mySubscriptionsContainer.removeAllViews()
-                topSubscriptionsContainer.removeAllViews()
-
-                if (role == "admin") {
-                    // Общие расходы семьи
-                    val total = subs.sumOf { it.price }
-                    familyTotalText.text = "Общие расходы семьи: $total ₽"
-
-                    // Расходы по членам семьи
-                    val members = subs.groupBy { it.ownerUsername }
-                    members.forEach { (member, memberSubs) ->
-                        val totalMember = memberSubs.sumOf { it.price }
-                        val tv = TextView(this).apply {
-                            text = "$member: $totalMember ₽"
-                            textSize = 16f
-                            setPadding(16, 4, 0, 4)
-                        }
-                        statsContainer.addView(tv)
-                    }
-                } else {
-                    familyTotalText.text = "Мои расходы"
-                }
-
-                // Личные подписки
-                val mySubs = subs.filter { it.ownerUsername == username }
-                mySubs.forEach { sub ->
-                    val tv = TextView(this).apply {
-                        text = "${sub.name}: ${sub.price} ₽"
-                        textSize = 16f
-                        setPadding(16, 4, 0, 4)
-                    }
-                    mySubscriptionsContainer.addView(tv)
-                }
-
-                // Топ дорогих подписок
-                val topSubs = mySubs.sortedByDescending { it.price }.take(3)
-                topSubs.forEach { sub ->
-                    val tv = TextView(this).apply {
-                        text = "${sub.name}: ${sub.price} ₽"
-                        textSize = 16f
-                        setPadding(16, 4, 0, 4)
-                    }
-                    topSubscriptionsContainer.addView(tv)
-                }
-            }
-    }
-
-    private fun setupBottomNav() {
         findViewById<ImageButton>(R.id.nav_home).setOnClickListener {
-            val intent = Intent(this, MainFrameActivity::class.java)
-            intent.putExtra("username", username)
-            intent.putExtra("familyCode", familyCode)
-            startActivity(intent)
+            startActivity(Intent(this, MainFrameActivity::class.java).apply {
+                putExtra("username", username)
+                putExtra("familyCode", familyCode)
+            })
             finish()
         }
 
-        findViewById<ImageButton>(R.id.nav_calendar).setOnClickListener {
-            Toast.makeText(this, "Календарь пока не реализован", Toast.LENGTH_SHORT).show()
+        findViewById<ImageButton>(R.id.nav_add).setOnClickListener {
+            startActivity(Intent(this, AddSubscriptionActivity::class.java).apply {
+                putExtra("username", username)
+                putExtra("familyCode", familyCode)
+            })
         }
 
         findViewById<ImageView>(R.id.nav_stats).setOnClickListener {
-            // Уже на этом экране, можно показать Toast
-            Toast.makeText(this, "Вы на статистике", Toast.LENGTH_SHORT).show()
+            // уже тут
         }
 
-        findViewById<ImageButton>(R.id.nav_add).setOnClickListener {
-            val intent = Intent(this, AddSubscriptionActivity::class.java)
-            intent.putExtra("username", username)
-            intent.putExtra("familyCode", familyCode)
-            startActivity(intent)
+        findViewById<ImageButton>(R.id.nav_settings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java).apply {
+                putExtra("username", username)
+                putExtra("familyCode", familyCode)
+            })
         }
     }
+
+
+    // ================= LOAD PAYMENTS =================
+    private fun loadPayments() {
+        var query = db.collection("payments")
+            .whereEqualTo("familyCode", familyCode)
+
+        if (role != "admin") {
+            query = query.whereEqualTo("ownerUsername", username)
+        }
+
+        query.get().addOnSuccessListener { snapshot ->
+            historyContainer.removeAllViews()
+
+            if (snapshot.isEmpty) {
+                historyContainer.addView(TextView(this).apply {
+                    text = "История оплат пуста"
+                    textSize = 18f
+                    gravity = Gravity.CENTER
+                })
+                return@addOnSuccessListener
+            }
+
+            val payments = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(Payment::class.java)?.copy(id = doc.id)
+            }.sortedByDescending { it.paidAt }
+
+            payments.forEach {
+                historyContainer.addView(createPaymentCard(it))
+            }
+
+            if (role == "admin") {
+                calculateSummary(payments)
+            }
+        }
+    }
+
+
+    private fun createPaymentCard(payment: Payment): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 20, 24, 20)
+            background = getDrawable(R.drawable.sub_card_bg)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 16 }
+        }
+
+        card.addView(TextView(this).apply {
+            text = payment.subscriptionName
+            textSize = 18f
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+
+        card.addView(TextView(this).apply {
+            text = "💰 ${payment.amount} ₽"
+            textSize = 15f
+        })
+
+        card.addView(TextView(this).apply {
+            text = "📅 ${dateFormat.format(Date(payment.paidAt))}"
+            textSize = 14f
+        })
+
+        card.addView(TextView(this).apply {
+            text = "👤 ${payment.ownerUsername}"
+            textSize = 14f
+        })
+
+        return card
+    }
+
+
+    // ================= SUMMARY =================
+    private fun calculateSummary(payments: List<Payment>) {
+        if (payments.isEmpty()) return
+
+        val nonNullPayments = payments.filter { it.amount != null }
+
+        if (nonNullPayments.isEmpty()) return
+
+        val mostExpensive = nonNullPayments.maxByOrNull { it.amount!! } ?: return
+
+        mostExpensiveSub.text =
+            "💎 Самая дорогая: ${mostExpensive.subscriptionName}"
+
+        avgCost.text =
+            "📊 Средняя оплата: ${"%.2f".format(nonNullPayments.map { it.amount!! }.average())} ₽"
+
+        totalSubscriptions.text =
+            "📦 Всего оплат: ${nonNullPayments.size}"
+
+        monthlyCost.text =
+            "📅 Максимальный платёж: ${mostExpensive.amount} ₽"
+    }
+
+
 }

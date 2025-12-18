@@ -43,7 +43,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Введите имя и код семьи", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            loginWithFamilyCode(username, familyCode)
+            loginOrCreateUser(username, familyCode)
         }
 
         buttonCreateFamily.setOnClickListener {
@@ -53,31 +53,39 @@ class MainActivity : AppCompatActivity() {
         googleButton.setOnClickListener { signInWithGoogle() }
     }
 
-    private fun loginWithFamilyCode(username: String, familyCode: String) {
-        db.collection("users")
-            .whereEqualTo("username", username)
-            .whereEqualTo("familyCode", familyCode)
-            .get()
-            .addOnSuccessListener { result ->
-                val userDoc = result.documents.firstOrNull()
-                if (userDoc != null) {
-                    // Есть пользователь, используем его UID
-                    val uid = userDoc.getString("uid")!!
-                    openMain(username, familyCode)
-                } else {
-                    // Пользователь не найден — создаем нового
-                    val currentUser = auth.currentUser
-                    if (currentUser == null) {
-                        auth.signInAnonymously().addOnSuccessListener { res ->
-                            val uid = res.user!!.uid
+    // =================== LOGIN / CREATE ===================
+    private fun loginOrCreateUser(username: String, familyCode: String) {
+        // Сначала проверяем, существует ли семья
+        db.collection("families").document(familyCode).get()
+            .addOnSuccessListener { familyDoc ->
+                if (!familyDoc.exists()) {
+                    Toast.makeText(this, "Семья с таким кодом не найдена", Toast.LENGTH_SHORT).show()
+                    return@addOnSuccessListener
+                }
+
+                // Проверяем, существует ли пользователь с таким username в семье
+                db.collection("users")
+                    .whereEqualTo("familyCode", familyCode)
+                    .whereEqualTo("username", username)
+                    .get()
+                    .addOnSuccessListener { userSnap ->
+                        val userDoc = userSnap.documents.firstOrNull()
+                        if (userDoc != null) {
+                            // Пользователь найден
+                            openMain(username, familyCode)
+                        } else {
+                            // Пользователь не найден — создаем нового
+                            val currentUser = auth.currentUser
+                            val uid = currentUser?.uid ?: run {
+                                auth.signInAnonymously().addOnSuccessListener { res ->
+                                    createUserDoc(res.user!!.uid, username, familyCode)
+                                }
+                                return@addOnSuccessListener
+                            }
                             createUserDoc(uid, username, familyCode)
                         }
-                    } else {
-                        createUserDoc(currentUser.uid, username, familyCode)
                     }
-                }
             }
-            .addOnFailureListener { e -> Toast.makeText(this, "Ошибка входа: ${e.message}", Toast.LENGTH_SHORT).show() }
     }
 
     private fun createUserDoc(uid: String, username: String, familyCode: String) {
@@ -91,33 +99,12 @@ class MainActivity : AppCompatActivity() {
         db.collection("users").document(uid)
             .set(userData)
             .addOnSuccessListener { openMain(username, familyCode) }
-            .addOnFailureListener { e -> Toast.makeText(this, "Ошибка создания пользователя: ${e.message}", Toast.LENGTH_SHORT).show() }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Ошибка создания пользователя: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
-
-    private fun createMemberUser(username: String, familyCode: String) {
-        auth.signInAnonymously().addOnSuccessListener { result ->
-            val uid = result.user!!.uid
-            val userData = hashMapOf(
-                "uid" to uid,
-                "username" to username,
-                "familyCode" to familyCode,
-                "role" to "member",
-                "provider" to "manual"
-            )
-            db.collection("users").document(uid).set(userData)
-                .addOnSuccessListener { openMain(username, familyCode) }
-        }
-    }
-
-    private fun openMain(username: String, familyCode: String) {
-        val intent = Intent(this, MainFrameActivity::class.java)
-        intent.putExtra("username", username)
-        intent.putExtra("familyCode", familyCode)
-        startActivity(intent)
-        finish()
-    }
-
+    // =================== GOOGLE SIGN-IN ===================
     private fun setupGoogleSignIn() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
@@ -127,8 +114,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun signInWithGoogle() {
-        val signInIntent = googleSignInClient.signInIntent
-        startActivityForResult(signInIntent, RC_SIGN_IN)
+        startActivityForResult(googleSignInClient.signInIntent, RC_SIGN_IN)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -174,17 +160,34 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("OK") { _, _ ->
                 val familyCode = input.text.toString().trim()
                 if (familyCode.isEmpty()) return@setPositiveButton
-                val userData = hashMapOf(
-                    "uid" to uid,
-                    "username" to username,
-                    "familyCode" to familyCode,
-                    "role" to "member",
-                    "provider" to "google"
-                )
-                db.collection("users").document(uid).set(userData)
-                    .addOnSuccessListener { openMain(username, familyCode) }
+
+                db.collection("families").document(familyCode).get()
+                    .addOnSuccessListener { familyDoc ->
+                        if (!familyDoc.exists()) {
+                            Toast.makeText(this, "Семья с таким кодом не найдена", Toast.LENGTH_SHORT).show()
+                            return@addOnSuccessListener
+                        }
+
+                        val userData = hashMapOf(
+                            "uid" to uid,
+                            "username" to username,
+                            "familyCode" to familyCode,
+                            "role" to "member",
+                            "provider" to "google"
+                        )
+                        db.collection("users").document(uid).set(userData)
+                            .addOnSuccessListener { openMain(username, familyCode) }
+                    }
             }
             .setNegativeButton("Отмена", null)
             .show()
+    }
+
+    private fun openMain(username: String, familyCode: String) {
+        val intent = Intent(this, MainFrameActivity::class.java)
+        intent.putExtra("username", username)
+        intent.putExtra("familyCode", familyCode)
+        startActivity(intent)
+        finish()
     }
 }

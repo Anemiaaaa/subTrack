@@ -38,22 +38,21 @@ class RegisterActivity : AppCompatActivity() {
             val familyCode = generateFamilyCode()
 
             val currentUser = auth.currentUser
-            if (currentUser == null) {
+            val uidProvider = currentUser?.uid ?: run {
                 auth.signInAnonymously().addOnSuccessListener { authResult ->
-                    val uid = authResult.user!!.uid
-                    createFamily(uid, username, familyName, familyCode)
+                    createFamilyAndAdmin(authResult.user!!.uid, username, familyName, familyCode)
                 }.addOnFailureListener {
                     Toast.makeText(this, "Ошибка аутентификации", Toast.LENGTH_SHORT).show()
                 }
-            } else {
-                createFamily(currentUser.uid, username, familyName, familyCode)
+                return@setOnClickListener
             }
+            createFamilyAndAdmin(uidProvider, username, familyName, familyCode)
         }
 
         backButton.setOnClickListener { finish() }
     }
 
-    private fun createFamily(uid: String, username: String, familyName: String, familyCode: String) {
+    private fun createFamilyAndAdmin(uid: String, username: String, familyName: String, familyCode: String) {
         val familyData = hashMapOf(
             "familyName" to familyName,
             "createdBy" to uid
@@ -61,7 +60,6 @@ class RegisterActivity : AppCompatActivity() {
 
         db.collection("families").document(familyCode).set(familyData)
             .addOnSuccessListener {
-                // Создаем пользователя как admin
                 val userData = hashMapOf(
                     "uid" to uid,
                     "username" to username,
@@ -106,3 +104,5 @@ class RegisterActivity : AppCompatActivity() {
         return (1..6).map { charset.random() }.joinToString("")
     }
 }
+
+// 686MEP
