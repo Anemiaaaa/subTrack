@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0F1115">
+    android:background="#ECECEC">
 
     <!-- Заголовок -->
     <TextView
@@ -14,7 +14,6 @@
         android:text="История оплат"
         android:textSize="24sp"
         android:textStyle="bold"
-        android:textColor="#E7EAF0"
         android:layout_marginStart="16dp"
         android:layout_marginTop="24dp"
         app:layout_constraintTop_toTopOf="parent"
@@ -40,14 +39,14 @@
             android:padding="16dp"/>
     </ScrollView>
 
-    <!-- Нижний блок статистики (тёмный фон, без новых drawable) -->
+    <!-- Нижний блок статистики -->
     <LinearLayout
         android:id="@+id/statsSummaryContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp"
-        android:background="#1C1F26"
+        android:background="@drawable/summary_card_bg"
         android:elevation="4dp"
         android:layout_marginHorizontal="12dp"
         android:layout_marginTop="8dp"
@@ -62,8 +61,7 @@
             android:layout_height="wrap_content"
             android:text="💎 Самая дорогая подписка: —"
             android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#E7EAF0"/>
+            android:textStyle="bold"/>
 
         <TextView
             android:id="@+id/monthlyCost"
@@ -71,7 +69,6 @@
             android:layout_height="wrap_content"
             android:text="📅 Стоимость за месяц: —"
             android:textSize="15sp"
-            android:textColor="#E7EAF0"
             android:layout_marginTop="6dp"/>
 
         <TextView
@@ -80,7 +77,6 @@
             android:layout_height="wrap_content"
             android:text="📊 Средняя подписка: —"
             android:textSize="15sp"
-            android:textColor="#E7EAF0"
             android:layout_marginTop="6dp"/>
 
         <TextView
@@ -89,11 +85,10 @@
             android:layout_height="wrap_content"
             android:text="📦 Количество подписок: —"
             android:textSize="15sp"
-            android:textColor="#E7EAF0"
             android:layout_marginTop="6dp"/>
     </LinearLayout>
 
-    <!-- Нижняя навигация (НЕ ТРОГАЮ) -->
+    <!-- Нижняя навигация -->
     <LinearLayout
         android:id="@+id/nav_bar_container"
         android:layout_width="0dp"
@@ -116,6 +111,7 @@
             android:background="@android:color/transparent"
             android:src="@drawable/home"
             android:contentDescription="Дом"/>
+
 
         <FrameLayout
             android:layout_width="0dp"
