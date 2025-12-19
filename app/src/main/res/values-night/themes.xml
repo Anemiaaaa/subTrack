@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.SubTracker" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Primary (темнее, чтобы кнопки были контрастные) -->
+        <item name="colorPrimary">#1E88E5</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+
+        <item name="colorSecondary">#64B5F6</item>
+        <item name="colorOnSecondary">#000000</item>
+
+        <!-- Background / Surface -->
+        <item name="android:colorBackground">#121212</item>
+        <item name="colorSurface">#1E1E1E</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorOnSurfaceVariant">#BDBDBD</item>
+
+        <!-- Text -->
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#BDBDBD</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">#121212</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Ripple -->
+        <item name="colorControlHighlight">#33FFFFFF</item>
+    </style>
+
+</resources>

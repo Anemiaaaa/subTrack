@@ -6,7 +6,7 @@
     <!-- Уведомления (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Для работы фоновых задач (WorkManager) -->
+    <!-- Для работы фоновых задач -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -19,23 +19,19 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SubTracker">
+        android:theme="@style/Theme.SubTracker"
+        tools:targetApi="31">
 
-
-        <!-- ВОТ ТУТ ДОЛЖЕН БЫТЬ RECEIVER -->
+        <!-- НАШ receiver: перепланирует WorkManager после reboot / обновления -->
         <receiver
-            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+            android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="false"
-            tools:replace="android:enabled">
-
+            android:exported="false">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
-
         </receiver>
-
 
         <!-- Экран регистрации -->
         <activity
@@ -43,13 +39,23 @@
             android:exported="false" />
 
         <!-- Главный экран -->
-        <activity android:name=".MainFrameActivity" />
+        <activity
+            android:name=".MainFrameActivity"
+            android:exported="false" />
 
-        <activity android:name=".StatsActivity" />
+        <activity
+            android:name=".StatsActivity"
+            android:exported="false" />
 
+        <!-- Настройки (если используешь) -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
 
         <!-- Экран добавления подписки -->
-        <activity android:name=".AddSubscriptionActivity" />
+        <activity
+            android:name=".AddSubscriptionActivity"
+            android:exported="false" />
 
         <!-- Стартовый экран -->
         <activity
@@ -58,8 +64,8 @@
             android:label="@string/app_name"
             android:theme="@style/Theme.SubTracker">
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 

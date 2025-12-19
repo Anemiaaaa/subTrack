@@ -1,15 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#ECECEC">
+    android:background="#0F1115">
 
+    <!-- ОСНОВНОЙ КОНТЕНТ (тёмный) -->
     <FrameLayout
         android:id="@+id/add_container"
         android:layout_width="368dp"
         android:layout_height="520dp"
         android:layout_marginTop="70dp"
         android:layout_centerHorizontal="true"
-        android:background="@drawable/subrestangle_dark">
+        android:background="@drawable/dark_rectangle">
 
         <ScrollView
             android:layout_width="match_parent"
@@ -21,14 +23,14 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- Поиск сервиса -->
                 <EditText
                     android:id="@+id/editTextServiceSearch"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
                     android:hint="Поиск сервиса (Netflix, Spotify...)"
-                    android:textColor="#000000"
+                    android:textColor="#E7EAF0"
+                    android:textColorHint="#9AA0AA"
                     android:textSize="16sp"
                     android:saveEnabled="false"
                     android:importantForAutofill="no"
@@ -47,7 +49,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="14dp"
                     android:hint="Название подписки"
-                    android:textColor="#000000"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#FFFFFF"
                     android:textSize="16sp" />
 
                 <EditText
@@ -57,7 +60,8 @@
                     android:layout_marginBottom="14dp"
                     android:hint="Стоимость"
                     android:inputType="numberDecimal"
-                    android:textColor="#000000"
+                    android:textColor="#FFFFFF"
+                    android:textColorHint="#FFFFFF"
                     android:textSize="16sp" />
 
                 <Spinner
@@ -80,7 +84,7 @@
         </ScrollView>
     </FrameLayout>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ (НЕ МЕНЯЛ) -->
+    <!-- НИЖНЯЯ ПАНЕЛЬ — НЕ ТРОГАЕМ -->
     <RelativeLayout
         android:id="@+id/nav_bar_container"
         android:layout_width="match_parent"

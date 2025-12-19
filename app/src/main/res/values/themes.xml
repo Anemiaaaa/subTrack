@@ -1,10 +1,29 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Основная тема AppCompat -->
-    <style name="Theme.SubTracker" parent="Theme.AppCompat.Light.NoActionBar">
-        <!-- Customize your theme here. -->
-        <item name="colorPrimary">@color/blue</item>
-        <item name="colorPrimaryDark">@color/black</item>
-        <item name="colorAccent">@color/blue</item>
-        <item name="android:fontFamily">@font/jura_regular</item>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.SubTracker" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Основные цвета -->
+        <item name="colorPrimary">#3F51B5</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+
+        <item name="colorSecondary">#1565C0</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+
+        <!-- Фон -->
+        <item name="android:colorBackground">#FFFFFF</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#000000</item>
+
+        <!-- Текст -->
+        <item name="android:textColorPrimary">#000000</item>
+        <item name="android:textColorSecondary">#555555</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">#FFFFFF</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Ripple -->
+        <item name="colorControlHighlight">#22000000</item>
     </style>
+
 </resources>

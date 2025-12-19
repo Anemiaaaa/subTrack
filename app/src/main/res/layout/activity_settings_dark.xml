@@ -2,7 +2,8 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#0F1115">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,8 +19,9 @@
             android:text="Настройки"
             android:textSize="24sp"
             android:textStyle="bold"
+            android:textColor="#E7EAF0"
             android:paddingBottom="12dp"
-            android:paddingTop="20dp"/>
+            android:paddingTop="20dp" />
 
         <ProgressBar
             android:id="@+id/settings_progress"
@@ -68,7 +70,6 @@
                 android:elevation="8dp" />
         </FrameLayout>
 
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -79,7 +80,8 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Имя" />
+                android:text="Имя"
+                android:textColor="#9AA0AA" />
 
             <TextView
                 android:id="@+id/username_value"
@@ -88,12 +90,14 @@
                 android:text="—"
                 android:textStyle="bold"
                 android:textSize="16sp"
+                android:textColor="#E7EAF0"
                 android:layout_marginBottom="8dp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Код семьи (нажми чтобы скопировать)" />
+                android:text="Код семьи (нажми чтобы скопировать)"
+                android:textColor="#9AA0AA" />
 
             <TextView
                 android:id="@+id/familycode_value"
@@ -101,16 +105,18 @@
                 android:layout_height="wrap_content"
                 android:text="—"
                 android:textStyle="bold"
-                android:textSize="16sp" />
+                android:textSize="16sp"
+                android:textColor="#E7EAF0" />
         </LinearLayout>
 
+        <!-- Обычные кнопки: темнее фон + ЧЁРНЫЙ текст -->
         <LinearLayout
             android:id="@+id/button_change_name"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:padding="14dp"
-            android:background="@drawable/bg_settings_button"
+            android:background="@drawable/bg_settings_button_danger"
             android:clickable="true"
             android:focusable="true"
             android:layout_marginBottom="8dp">
@@ -118,8 +124,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Сменить имя" />
-
+                android:text="Сменить имя"
+                android:textColor="#000000"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
@@ -128,7 +135,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:padding="14dp"
-            android:background="@drawable/bg_settings_button"
+            android:background="@drawable/bg_settings_button_danger"
             android:clickable="true"
             android:focusable="true"
             android:layout_marginBottom="8dp">
@@ -136,9 +143,12 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Сменить тему (позже)" />
+                android:text="Тема: Тёмная"
+                android:textColor="#000000"
+                android:textStyle="bold" />
         </LinearLayout>
 
+        <!-- Danger кнопки: оставляю твой drawable (чтобы рамка/форма сохранились), но текст делаю ЧЁРНЫМ -->
         <LinearLayout
             android:id="@+id/button_leave_family"
             android:layout_width="match_parent"
@@ -153,7 +163,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Покинуть семью" />
+                android:text="Покинуть семью"
+                android:textColor="#000000"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
@@ -170,7 +182,9 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Выйти" />
+                android:text="Выйти"
+                android:textColor="#000000"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
@@ -179,19 +193,21 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:padding="14dp"
-            android:background="@drawable/bg_settings_button"
+            android:background="@drawable/bg_settings_button_danger"
             android:clickable="true"
             android:focusable="true">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Экспорт CSV" />
+                android:text="Экспорт CSV"
+                android:textColor="#000000"
+                android:textStyle="bold" />
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- Нижняя навигация -->
+    <!-- Нижняя навигация (НЕ ТРОГАЮ) -->
     <LinearLayout
         android:id="@+id/nav_bar_container"
         android:layout_width="0dp"
@@ -214,7 +230,6 @@
             android:background="@android:color/transparent"
             android:src="@drawable/home"
             android:contentDescription="Дом"/>
-
 
         <FrameLayout
             android:layout_width="0dp"
@@ -252,6 +267,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:layout_gravity="center"
             android:background="@android:color/transparent">
 
             <ImageView

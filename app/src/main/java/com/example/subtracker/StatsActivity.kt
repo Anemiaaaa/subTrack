@@ -4,11 +4,14 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.widget.*
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
+import kotlin.math.roundToInt
 
 class StatsActivity : AppCompatActivity() {
 
@@ -19,23 +22,33 @@ class StatsActivity : AppCompatActivity() {
     private lateinit var totalSubscriptions: TextView
     private lateinit var statsSummaryContainer: LinearLayout
 
-    private lateinit var familyCode: String
-    private lateinit var username: String
-    private lateinit var role: String
+    private var familyCode: String = ""
+    private var username: String = ""
+    private var role: String = "member"
+    private var uid: String = "" // users/{docId}
 
     private val db = FirebaseFirestore.getInstance()
     private val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_stats)
 
-        // ===== INTENT =====
-        username = intent.getStringExtra("username") ?: return
-        familyCode = intent.getStringExtra("familyCode") ?: return
-        role = intent.getStringExtra("role") ?: "member"
+        // ✅ Выбор layout по твоему ThemeManager (только XML, без DayNight)
+        val isDark = ThemeManager.getMode(this) == ThemeManager.MODE_DARK
+        setContentView(if (isDark) R.layout.activity_stats_dark else R.layout.activity_stats)
 
-        // ===== UI =====
+        // extras -> fallback на Session
+        username = intent.getStringExtra("username").orEmpty().ifEmpty { SessionManager.username(this) }
+        familyCode = intent.getStringExtra("familyCode").orEmpty().ifEmpty { SessionManager.familyCode(this) }
+        role = (intent.getStringExtra("role") ?: SessionManager.role(this)).ifEmpty { "member" }
+        uid = intent.getStringExtra("uid").orEmpty().ifEmpty { SessionManager.userDocId(this) }
+
+        if (familyCode.isEmpty() || uid.isEmpty()) {
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+
         historyContainer = findViewById(R.id.historyContainer)
         mostExpensiveSub = findViewById(R.id.mostExpensiveSub)
         monthlyCost = findViewById(R.id.monthlyCost)
@@ -43,54 +56,61 @@ class StatsActivity : AppCompatActivity() {
         totalSubscriptions = findViewById(R.id.totalSubscriptions)
         statsSummaryContainer = findViewById(R.id.statsSummaryContainer)
 
-        // ===== NAVIGATION =====
         setupNavigation()
 
-        // ===== VISIBILITY =====
-        statsSummaryContainer.visibility =
-            if (role == "admin") View.VISIBLE else View.GONE
+        // раньше ты показывал сводку только админу — оставляю логику
+        statsSummaryContainer.visibility = if (role == "admin") View.VISIBLE else View.GONE
 
         loadPayments()
+
+        // ✅ Новый расчёт — по подпискам (в пересчёте на месяц), а не по платежам
+        if (role == "admin") {
+            loadSubscriptionsAndCalculateMonthly()
+        }
     }
 
-    // ================= NAVIGATION =================
     private fun setupNavigation() {
-
-        findViewById<ImageButton>(R.id.nav_home).setOnClickListener {
+        findViewById<View>(R.id.nav_home).setOnClickListener {
             startActivity(Intent(this, MainFrameActivity::class.java).apply {
                 putExtra("username", username)
                 putExtra("familyCode", familyCode)
+                putExtra("role", role)
+                putExtra("uid", uid)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             })
             finish()
         }
 
-        findViewById<ImageButton>(R.id.nav_add).setOnClickListener {
+        findViewById<View>(R.id.nav_add).setOnClickListener {
             startActivity(Intent(this, AddSubscriptionActivity::class.java).apply {
                 putExtra("username", username)
                 putExtra("familyCode", familyCode)
+                putExtra("role", role)
+                putExtra("uid", uid)
             })
         }
 
-        findViewById<ImageView>(R.id.nav_stats).setOnClickListener {
-            // уже тут
+        findViewById<View>(R.id.nav_stats).setOnClickListener {
+            // already here
         }
 
-        findViewById<ImageButton>(R.id.nav_settings).setOnClickListener {
+        findViewById<View>(R.id.nav_settings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java).apply {
                 putExtra("username", username)
                 putExtra("familyCode", familyCode)
+                putExtra("role", role)
+                putExtra("uid", uid)
             })
         }
     }
 
-
-    // ================= LOAD PAYMENTS =================
     private fun loadPayments() {
         var query = db.collection("payments")
             .whereEqualTo("familyCode", familyCode)
 
+        // фильтр для member по ownerUid (docId), а не по ownerUsername
         if (role != "admin") {
-            query = query.whereEqualTo("ownerUsername", username)
+            query = query.whereEqualTo("ownerUid", uid)
         }
 
         query.get().addOnSuccessListener { snapshot ->
@@ -109,16 +129,11 @@ class StatsActivity : AppCompatActivity() {
                 doc.toObject(Payment::class.java)?.copy(id = doc.id)
             }.sortedByDescending { it.paidAt }
 
-            payments.forEach {
-                historyContainer.addView(createPaymentCard(it))
-            }
+            payments.forEach { historyContainer.addView(createPaymentCard(it)) }
 
-            if (role == "admin") {
-                calculateSummary(payments)
-            }
+            // ⚠️ больше не считаем “самую дорогую” по payments — это некорректно
         }
     }
-
 
     private fun createPaymentCard(payment: Payment): View {
         val card = LinearLayout(this).apply {
@@ -138,7 +153,7 @@ class StatsActivity : AppCompatActivity() {
         })
 
         card.addView(TextView(this).apply {
-            text = "💰 ${payment.amount} ₽"
+            text = "💰 ${formatMoney(payment.amount)} ₽"
             textSize = 15f
         })
 
@@ -155,29 +170,64 @@ class StatsActivity : AppCompatActivity() {
         return card
     }
 
+    // ===================== NEW: Monthly-equivalent stats =====================
 
-    // ================= SUMMARY =================
-    private fun calculateSummary(payments: List<Payment>) {
-        if (payments.isEmpty()) return
+    private fun loadSubscriptionsAndCalculateMonthly() {
+        var query = db.collection("subscriptions")
+            .whereEqualTo("familyCode", familyCode)
 
-        val nonNullPayments = payments.filter { it.amount != null }
+        // если когда-нибудь захочешь показывать сводку member — раскомментируй:
+        // if (role != "admin") query = query.whereEqualTo("ownerUid", uid)
 
-        if (nonNullPayments.isEmpty()) return
+        query.get().addOnSuccessListener { snapshot ->
+            if (snapshot.isEmpty) {
+                mostExpensiveSub.text = "💎 Самая дорогая: —"
+                monthlyCost.text = "📅 Стоимость за месяц: —"
+                avgCost.text = "📊 Средняя подписка: —"
+                totalSubscriptions.text = "📦 Количество подписок: 0"
+                return@addOnSuccessListener
+            }
 
-        val mostExpensive = nonNullPayments.maxByOrNull { it.amount!! } ?: return
+            val subs = snapshot.documents.mapNotNull { doc ->
+                doc.toObject(FirebaseSubscription::class.java)?.copy(id = doc.id)
+            }
 
-        mostExpensiveSub.text =
-            "💎 Самая дорогая: ${mostExpensive.subscriptionName}"
+            val monthlyPairs = subs.map { sub ->
+                val perMonth = estimateMonthlyCost(sub.price, sub.periodicity)
+                sub to perMonth
+            }
 
-        avgCost.text =
-            "📊 Средняя оплата: ${"%.2f".format(nonNullPayments.map { it.amount!! }.average())} ₽"
+            val (maxSub, maxMonthly) = monthlyPairs.maxByOrNull { it.second } ?: return@addOnSuccessListener
+            val totalMonthly = monthlyPairs.sumOf { it.second }
+            val avgMonthly = if (monthlyPairs.isNotEmpty()) totalMonthly / monthlyPairs.size else 0.0
 
-        totalSubscriptions.text =
-            "📦 Всего оплат: ${nonNullPayments.size}"
+            // “красивее” — показываем ₽/мес и владельца
+            mostExpensiveSub.text =
+                "💎 Самая дорогая: ${maxSub.name} • ${formatMoney(maxMonthly)} ₽/мес"
 
-        monthlyCost.text =
-            "📅 Максимальный платёж: ${mostExpensive.amount} ₽"
+            monthlyCost.text = "📅 Стоимость за месяц: ${formatMoney(totalMonthly)} ₽"
+            avgCost.text = "📊 Средняя подписка: ${formatMoney(avgMonthly)} ₽/мес"
+            totalSubscriptions.text = "📦 Количество подписок: ${subs.size}"
+        }
     }
 
+    private fun estimateMonthlyCost(price: Double, periodicity: String): Double {
+        val p = periodicity.trim().lowercase(Locale.getDefault())
 
+        // коэффициенты — “оценка за месяц”
+        return when {
+            p.contains("день") -> price * 30.0
+            p.contains("нед") -> price * 4.345 // среднее недель в месяце
+            p.contains("кварт") -> price / 3.0
+            p.contains("год") -> price / 12.0
+            // "месяц" и всё неизвестное считаем как "в месяц"
+            else -> price
+        }
+    }
+
+    private fun formatMoney(v: Double): String {
+        // без копеек, если целое
+        val rounded = (v * 100.0).roundToInt() / 100.0
+        return if (rounded % 1.0 == 0.0) rounded.toInt().toString() else String.format(Locale.getDefault(), "%.2f", rounded)
+    }
 }
