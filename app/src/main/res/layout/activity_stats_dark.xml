@@ -6,28 +6,43 @@
     android:layout_height="match_parent"
     android:background="#0F1115">
 
-    <!-- Заголовок -->
-    <TextView
-        android:id="@+id/statsTitle"
-        android:layout_width="wrap_content"
+    <!-- Заголовок в карточке -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/headerCard"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="История оплат"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="#E7EAF0"
         android:layout_marginStart="16dp"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="56dp"
+        android:layout_marginEnd="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#1C1F26"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"/>
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/statsTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="История оплат"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#E7EAF0"
+            android:padding="20dp"
+            android:gravity="center" />
+    </androidx.cardview.widget.CardView>
 
     <!-- История -->
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:id="@+id/historyScroll"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="16dp"
         android:fillViewport="true"
-        app:layout_constraintTop_toBottomOf="@id/statsTitle"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp"
+        app:layout_constraintTop_toBottomOf="@id/headerCard"
         app:layout_constraintBottom_toTopOf="@id/statsSummaryContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -37,133 +52,174 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"/>
-    </ScrollView>
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"/>
+    </androidx.core.widget.NestedScrollView>
 
-    <!-- Нижний блок статистики (тёмный фон, без новых drawable) -->
-    <LinearLayout
+    <!-- Нижний блок статистики -->
+    <androidx.cardview.widget.CardView
         android:id="@+id/statsSummaryContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp"
-        android:background="#1C1F26"
-        android:elevation="4dp"
-        android:layout_marginHorizontal="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="4dp"
+        app:cardBackgroundColor="#1C1F26"
         app:layout_constraintBottom_toTopOf="@id/nav_bar_container"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:id="@+id/mostExpensiveSub"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="💎 Самая дорогая подписка: —"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="#E7EAF0"/>
+            android:orientation="vertical"
+            android:padding="20dp">
 
-        <TextView
-            android:id="@+id/monthlyCost"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📅 Стоимость за месяц: —"
-            android:textSize="15sp"
-            android:textColor="#E7EAF0"
-            android:layout_marginTop="6dp"/>
+            <TextView
+                android:id="@+id/mostExpensiveSub"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💎 Самая дорогая подписка: —"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#E7EAF0"
+                android:layout_marginBottom="12dp"/>
 
-        <TextView
-            android:id="@+id/avgCost"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📊 Средняя подписка: —"
-            android:textSize="15sp"
-            android:textColor="#E7EAF0"
-            android:layout_marginTop="6dp"/>
+            <TextView
+                android:id="@+id/monthlyCost"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📅 Стоимость за месяц: —"
+                android:textSize="15sp"
+                android:textColor="#9AA0AA"
+                android:layout_marginBottom="8dp"/>
 
-        <TextView
-            android:id="@+id/totalSubscriptions"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📦 Количество подписок: —"
-            android:textSize="15sp"
-            android:textColor="#E7EAF0"
-            android:layout_marginTop="6dp"/>
-    </LinearLayout>
+            <TextView
+                android:id="@+id/avgCost"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📊 Средняя подписка: —"
+                android:textSize="15sp"
+                android:textColor="#9AA0AA"
+                android:layout_marginBottom="8dp"/>
 
-    <!-- Нижняя навигация (НЕ ТРОГАЮ) -->
-    <LinearLayout
+            <TextView
+                android:id="@+id/totalSubscriptions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📦 Количество подписок: —"
+                android:textSize="15sp"
+                android:textColor="#9AA0AA"/>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Нижняя навигация -->
+    <androidx.cardview.widget.CardView
         android:id="@+id/nav_bar_container"
         android:layout_width="0dp"
-        android:layout_height="80dp"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:weightSum="4"
-        android:background="@drawable/rectangle"
-        android:elevation="8dp"
-        android:padding="12dp"
+        android:layout_height="72dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="12dp"
+        app:cardBackgroundColor="#1C1F26"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
-        <ImageButton
-            android:id="@+id/nav_home"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@android:color/transparent"
-            android:src="@drawable/home"
-            android:contentDescription="Дом"/>
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:weightSum="4"
+            android:padding="8dp">
 
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@android:color/transparent">
+            <FrameLayout
+                android:id="@+id/nav_home"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
-            <ImageView
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Дом"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/home"
+                    android:tint="#E7EAF0" />
+            </FrameLayout>
+
+            <FrameLayout
                 android:id="@+id/nav_stats"
-                android:layout_width="55dp"
-                android:layout_height="52dp"
-                android:layout_gravity="center"
-                android:contentDescription="Статистика"
-                android:scaleType="centerCrop"
-                android:src="@drawable/history" />
-        </FrameLayout>
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@android:color/transparent">
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Статистика"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/history"
+                    android:tint="#E7EAF0" />
+            </FrameLayout>
 
-            <ImageView
+            <FrameLayout
                 android:id="@+id/nav_add"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:layout_gravity="center"
-                android:contentDescription="Добавить подписку"
-                android:scaleType="centerCrop"
-                android:src="@drawable/plus" />
-        </FrameLayout>
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@android:color/transparent">
+                <ImageView
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Добавить подписку"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/plus"
+                    android:tint="#E7EAF0" />
+            </FrameLayout>
 
-            <ImageView
+            <FrameLayout
                 android:id="@+id/nav_settings"
-                android:layout_width="45dp"
-                android:layout_height="45dp"
-                android:layout_gravity="center"
-                android:contentDescription="Настройки"
-                android:scaleType="centerCrop"
-                android:src="@drawable/settings" />
-        </FrameLayout>
-    </LinearLayout>
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Настройки"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/settings"
+                    android:tint="#E7EAF0" />
+            </FrameLayout>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

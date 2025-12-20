@@ -1,20 +1,58 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#ECECEC">
+    android:background="#F5F7FA">
 
-    <FrameLayout
+    <!-- Заголовок -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/headerCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="56dp"
+        android:layout_marginEnd="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#FFFFFF"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Добавить подписку"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#1A1A1A"
+            android:padding="20dp"
+            android:gravity="center" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Форма в карточке -->
+    <androidx.cardview.widget.CardView
         android:id="@+id/add_container"
-        android:layout_width="368dp"
-        android:layout_height="520dp"
-        android:layout_marginTop="70dp"
-        android:layout_centerHorizontal="true"
-        android:background="@drawable/subrestangle_dark">
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="2dp"
+        app:cardBackgroundColor="#FFFFFF"
+        app:layout_constraintTop_toBottomOf="@id/headerCard"
+        app:layout_constraintBottom_toTopOf="@id/nav_bar_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <ScrollView
+        <androidx.core.widget.NestedScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="20dp">
+            android:padding="20dp"
+            android:fillViewport="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -22,140 +60,215 @@
                 android:orientation="vertical">
 
                 <!-- Поиск сервиса -->
-                <EditText
-                    android:id="@+id/editTextServiceSearch"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    android:hint="Поиск сервиса (Netflix, Spotify...)"
-                    android:textColor="#000000"
-                    android:textSize="16sp"
-                    android:saveEnabled="false"
-                    android:importantForAutofill="no"
-                    android:inputType="text"
-                    android:imeOptions="actionDone" />
+                    android:layout_marginBottom="16dp"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxStrokeWidth="0dp"
+                    app:boxBackgroundMode="outline"
+                    app:hintTextColor="#666666"
+                    app:boxStrokeColor="#E0E0E0">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/editTextServiceSearch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Поиск сервиса (Netflix, Spotify...)"
+                        android:inputType="text"
+                        android:textSize="16sp"
+                        android:textColor="#1A1A1A"
+                        android:padding="16dp"
+                        android:imeOptions="actionDone" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <Spinner
                     android:id="@+id/spinnerIcon"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="14dp" />
+                    android:layout_height="56dp"
+                    android:layout_marginBottom="16dp"
+                    android:background="@drawable/chip_bg"
+                    android:padding="16dp" />
 
-                <EditText
-                    android:id="@+id/editTextName"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="14dp"
-                    android:hint="Название подписки"
-                    android:textColor="#000000"
-                    android:textSize="16sp" />
+                    android:layout_marginBottom="16dp"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxStrokeWidth="0dp"
+                    app:boxBackgroundMode="outline"
+                    app:hintTextColor="#666666"
+                    app:boxStrokeColor="#E0E0E0">
 
-                <EditText
-                    android:id="@+id/editTextPrice"
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/editTextName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Название подписки"
+                        android:inputType="text"
+                        android:textSize="16sp"
+                        android:textColor="#1A1A1A"
+                        android:padding="16dp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="14dp"
-                    android:hint="Стоимость"
-                    android:inputType="numberDecimal"
-                    android:textColor="#000000"
-                    android:textSize="16sp" />
+                    android:layout_marginBottom="16dp"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxStrokeWidth="0dp"
+                    app:boxBackgroundMode="outline"
+                    app:hintTextColor="#666666"
+                    app:boxStrokeColor="#E0E0E0">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/editTextPrice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="Стоимость"
+                        android:inputType="numberDecimal"
+                        android:textSize="16sp"
+                        android:textColor="#1A1A1A"
+                        android:padding="16dp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <Spinner
                     android:id="@+id/spinnerPeriodicity"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="18dp"
+                    android:layout_height="56dp"
+                    android:layout_marginBottom="24dp"
+                    android:background="@drawable/chip_bg"
+                    android:padding="16dp"
                     android:entries="@array/periodicity_options" />
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonSave"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:background="@drawable/button_dark"
+                    android:layout_height="56dp"
                     android:text="Сохранить"
+                    android:textAllCaps="false"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="16dp"
+                    app:backgroundTint="#1A1A1A"
                     android:textColor="#FFFFFF"
-                    android:textSize="20sp"
-                    android:textStyle="bold" />
+                    app:elevation="2dp" />
             </LinearLayout>
-        </ScrollView>
-    </FrameLayout>
+        </androidx.core.widget.NestedScrollView>
+    </androidx.cardview.widget.CardView>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ (НЕ МЕНЯЛ) -->
-    <RelativeLayout
+    <!-- Нижняя навигация -->
+    <androidx.cardview.widget.CardView
         android:id="@+id/nav_bar_container"
-        android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:layout_alignParentBottom="true"
-        android:background="@drawable/rectangle"
-        android:elevation="8dp">
+        android:layout_width="0dp"
+        android:layout_height="72dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="24dp"
+        app:cardElevation="12dp"
+        app:cardBackgroundColor="#FFFFFF"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
         <LinearLayout
-            android:id="@+id/bottom_nav"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="horizontal"
             android:gravity="center"
             android:weightSum="4"
-            android:padding="12dp">
+            android:padding="8dp">
 
-            <ImageButton
+            <FrameLayout
                 android:id="@+id/nav_home"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@android:color/transparent"
-                android:src="@drawable/home"
-                android:contentDescription="Дом" />
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Дом"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/home"
+                    android:tint="#1A1A1A" />
+            </FrameLayout>
 
             <FrameLayout
+                android:id="@+id/nav_stats"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@android:color/transparent">
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <ImageView
-                    android:id="@+id/nav_stats"
-                    android:layout_width="55dp"
-                    android:layout_height="52dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:layout_gravity="center"
                     android:contentDescription="Статистика"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/history" />
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/history"
+                    android:tint="#1A1A1A" />
             </FrameLayout>
 
             <FrameLayout
+                android:id="@+id/nav_add"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@android:color/transparent">
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <ImageView
-                    android:id="@+id/nav_add"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
                     android:layout_gravity="center"
                     android:contentDescription="Добавить подписку"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/plus" />
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/plus"
+                    android:tint="#1A1A1A" />
             </FrameLayout>
 
             <FrameLayout
+                android:id="@+id/nav_settings"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@android:color/transparent">
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <ImageView
-                    android:id="@+id/nav_settings"
-                    android:layout_width="45dp"
-                    android:layout_height="45dp"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
                     android:layout_gravity="center"
                     android:contentDescription="Настройки"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/settings" />
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/settings"
+                    android:tint="#1A1A1A" />
             </FrameLayout>
-
         </LinearLayout>
-    </RelativeLayout>
+    </androidx.cardview.widget.CardView>
 
-</RelativeLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
