@@ -65,79 +65,67 @@
     </androidx.cardview.widget.CardView>
 
     <!-- Блок фильтров -->
-    <HorizontalScrollView
+    <LinearLayout
         android:id="@+id/filterSortContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
         android:layout_marginEnd="16dp"
-        android:scrollbars="none"
-        android:fadeScrollbars="true"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:weightSum="3"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/headerCard">
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+        <TextView
+            android:id="@+id/btnSortPrice"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/chip_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center"
+            android:text="Цена"
+            android:textColor="#1A1A1A"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/btnSortPrice"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:minWidth="100dp"
-                android:background="@drawable/chip_bg"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                android:gravity="center"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:text="Цена"
-                android:textColor="#1A1A1A"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+        <TextView
+            android:id="@+id/btnSortDate"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/chip_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center"
+            android:text="Дата"
+            android:textColor="#1A1A1A"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
-            <TextView
-                android:id="@+id/btnSortDate"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:minWidth="100dp"
-                android:background="@drawable/chip_bg"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                android:gravity="center"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:text="Дата"
-                android:textColor="#1A1A1A"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/btnFilterUsers"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:minWidth="100dp"
-                android:background="@drawable/chip_bg"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground"
-                android:gravity="center"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:text="Семья"
-                android:textColor="#1A1A1A"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-    </HorizontalScrollView>
+        <TextView
+            android:id="@+id/btnFilterUsers"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="@drawable/chip_bg"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center"
+            android:text="Семья"
+            android:textColor="#1A1A1A"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <!-- Контейнер подписок -->
     <androidx.core.widget.NestedScrollView

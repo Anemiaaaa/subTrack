@@ -58,6 +58,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     implementation("com.google.android.gms:play-services-auth:20.7.0")
 
@@ -79,4 +80,7 @@ dependencies {
 
     // WorkManager
     implementation("androidx.work:work-runtime-ktx:2.8.1")
+    
+    // Glide for image loading
+    implementation("com.github.bumptech.glide:glide:4.16.0")
 }

@@ -17,6 +17,7 @@ class LoginViewModel(
     private val recoverFamilyCodeUseCase: RecoverFamilyCodeUseCase
 ) : ViewModel() {
 
+    // ================= EVENTS =================
     sealed class Event {
         data class Success(val session: AuthSession) : Event()
         data class Error(val message: String) : Event()
@@ -30,7 +31,33 @@ class LoginViewModel(
         _event.value = null
     }
 
+    // ================= CLASSIC LOGIN =================
     fun joinFamily(username: String, familyCode: String) {
+        android.util.Log.d("LoginViewModel", "joinFamily called: username=$username, familyCode=$familyCode")
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                android.util.Log.d("LoginViewModel", "Calling joinFamilyUseCase")
+                joinFamilyUseCase(
+                    requestedUsername = username.trim(),
+                    familyCode = familyCode.trim().uppercase()
+                )
+            }.onSuccess { session ->
+                android.util.Log.d("LoginViewModel", "joinFamilyUseCase success: session=$session")
+                _event.value = Event.Success(session)
+            }.onFailure { e ->
+                android.util.Log.e("LoginViewModel", "joinFamilyUseCase failed", e)
+                _event.value = Event.Error(e.message ?: "Ошибка входа")
+            }
+        }
+    }
+
+    // ================= GOOGLE LOGIN =================
+    fun googleJoinFamily(
+        uid: String,
+        username: String,
+        familyCode: String
+    ) {
+        // uid пока не используется в usecase — это ОК, если внутри usecase берёшь FirebaseAuth.currentUser.uid
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
                 joinFamilyUseCase(
@@ -40,32 +67,28 @@ class LoginViewModel(
             }.onSuccess { session ->
                 _event.value = Event.Success(session)
             }.onFailure { e ->
-                _event.value = Event.Error(e.message ?: "Ошибка входа")
+                _event.value = Event.Error(e.message ?: "Ошибка входа через Google")
             }
         }
     }
 
+    // ================= GUEST =================
     fun guestLogin() {
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                loginGuestUseCase()
-            }.onSuccess { session ->
-                _event.value = Event.Success(session)
-            }.onFailure { e ->
-                _event.value = Event.Error(e.message ?: "Ошибка гостевого входа")
-            }
+            runCatching { loginGuestUseCase() }
+                .onSuccess { session -> _event.value = Event.Success(session) }
+                .onFailure { e -> _event.value = Event.Error(e.message ?: "Ошибка гостевого входа") }
         }
     }
 
+    // ================= RECOVER =================
     fun recoverFamilyCode(username: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            runCatching {
-                recoverFamilyCodeUseCase(username)
-            }.onSuccess { familyCode ->
-                _event.value = Event.FamilyCodeRecovered(familyCode)
-            }.onFailure { e ->
-                _event.value = Event.Error(e.message ?: "Не удалось восстановить код семьи")
-            }
+            runCatching { recoverFamilyCodeUseCase(username) }
+                .onSuccess { familyCode -> _event.value = Event.FamilyCodeRecovered(familyCode) }
+                .onFailure { e ->
+                    _event.value = Event.Error(e.message ?: "Не удалось восстановить код семьи")
+                }
         }
     }
 }

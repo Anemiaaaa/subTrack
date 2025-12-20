@@ -97,8 +97,8 @@ class MainFrameActivity : AppCompatActivity() {
             onEdit = { /* handled by dialog itself */ },
             onPay = { subscription -> viewModel.pay(subscription) },
             onDelete = { subscription -> viewModel.delete(subscription) },
-            onUpdate = { subscription, newName, newPrice, newPeriod, newIcon ->
-                viewModel.update(subscription, newName, newPrice, newPeriod, newIcon)
+            onUpdate = { subscription, newName, newPrice, newPeriod, newIcon, newNextPaymentDate ->
+                viewModel.update(subscription, newName, newPrice, newPeriod, newIcon, newNextPaymentDate)
             }
         )
 

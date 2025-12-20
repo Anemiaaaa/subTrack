@@ -11,6 +11,7 @@ class UpdateSubscriptionUseCase(
         newName: String,
         newPrice: Double,
         newPeriodicity: String,
-        newIconResName: String
-    ) = repo.updateOfflineFirst(sub, newName, newPrice, newPeriodicity, newIconResName)
+        newIconResName: String,
+        newNextPaymentDate: Long
+    ) = repo.updateOfflineFirst(sub, newName, newPrice, newPeriodicity, newIconResName, newNextPaymentDate)
 }

@@ -7,9 +7,11 @@ import android.view.LayoutInflater
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import com.bumptech.glide.Glide
 import com.example.subtracker.R
 import com.example.subtracker.ThemeManager
 import com.example.subtracker.domain.model.User
+import java.io.File
 
 /**
  * Управляет диалогом информации о семье
@@ -48,6 +50,8 @@ class FamilyInfoDialogManager(
         val currentUser = members.firstOrNull { it.role.trim().equals("admin", ignoreCase = true) }
             ?: members.firstOrNull()
         
+        val currentUserAvatarView = dialogView.findViewById<ImageView>(R.id.currentUserAvatar)
+        
         if (currentUser != null) {
             currentUserName?.text = currentUser.username
             val roleLabel = if (currentUser.role.trim().equals("admin", ignoreCase = true)) {
@@ -56,9 +60,13 @@ class FamilyInfoDialogManager(
                 "Участник"
             }
             currentUserRole?.text = roleLabel
+            
+            // Загружаем аватар текущего пользователя
+            loadAvatar(currentUser.avatarUrl, currentUserAvatarView)
         } else {
             currentUserName?.text = "—"
             currentUserRole?.text = "—"
+            currentUserAvatarView?.setImageResource(R.drawable.avatar_placeholder)
         }
 
         shareHint?.setOnClickListener {
@@ -106,9 +114,41 @@ class FamilyInfoDialogManager(
         val letter = user.username.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
         letterView.text = letter
 
-        avatarView.setImageResource(R.drawable.avatar_placeholder)
+        // Загружаем аватар из локального файла, если есть
+        loadAvatar(user.avatarUrl, avatarView)
 
         return item
+    }
+    
+    /**
+     * Загружает аватар из локального файла или показывает placeholder
+     */
+    private fun loadAvatar(avatarPath: String, imageView: ImageView) {
+        android.util.Log.d("FamilyInfoDialog", "loadAvatar: path=$avatarPath, imageView=$imageView")
+        
+        if (avatarPath.isNotEmpty()) {
+            val avatarFile = File(avatarPath)
+            android.util.Log.d("FamilyInfoDialog", "Avatar file exists: ${avatarFile.exists()}, path: ${avatarFile.absolutePath}")
+            
+            if (avatarFile.exists()) {
+                // Загружаем из локального файла
+                android.util.Log.d("FamilyInfoDialog", "Loading avatar from file: ${avatarFile.absolutePath}")
+                Glide.with(context)
+                    .load(avatarFile)
+                    .placeholder(R.drawable.avatar_placeholder)
+                    .error(R.drawable.avatar_placeholder)
+                    .circleCrop()
+                    .into(imageView)
+            } else {
+                // Файл не существует, показываем placeholder
+                android.util.Log.w("FamilyInfoDialog", "Avatar file does not exist: ${avatarFile.absolutePath}")
+                imageView.setImageResource(R.drawable.avatar_placeholder)
+            }
+        } else {
+            // Путь пустой, показываем placeholder
+            android.util.Log.d("FamilyInfoDialog", "Avatar path is empty")
+            imageView.setImageResource(R.drawable.avatar_placeholder)
+        }
     }
 }
 

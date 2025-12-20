@@ -29,21 +29,26 @@ class ForgotFamilyCodeDialogManager(
             .inflate(layoutRes, null)
 
         val usernameInput = dialogView.findViewById<EditText>(R.id.editTextUsername)
+        val btnCancel = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnCancel)
+        val btnRecover = dialogView.findViewById<com.google.android.material.button.MaterialButton>(R.id.btnRecover)
 
         val dialog = AlertDialog.Builder(context)
-            .setTitle("Восстановление кода семьи")
             .setView(dialogView)
-            .setPositiveButton("Восстановить") { d, _ ->
-                val username = usernameInput.text.toString().trim()
-                if (username.isEmpty()) {
-                    Toast.makeText(context, "Введите имя пользователя", Toast.LENGTH_SHORT).show()
-                } else {
-                    onRecover(username)
-                    d.dismiss()
-                }
-            }
-            .setNegativeButton("Отмена", null)
             .create()
+
+        btnCancel?.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnRecover?.setOnClickListener {
+            val username = usernameInput.text.toString().trim()
+            if (username.isEmpty()) {
+                Toast.makeText(context, "Введите имя пользователя", Toast.LENGTH_SHORT).show()
+            } else {
+                onRecover(username)
+                dialog.dismiss()
+            }
+        }
 
         dialog.show()
     }

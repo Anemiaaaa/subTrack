@@ -33,6 +33,10 @@ object AppGraph {
     fun init(context: Context) {
         appContext = context.applicationContext
     }
+    
+    fun getAppContext(): Context {
+        return if (::appContext.isInitialized) appContext else throw IllegalStateException("AppGraph not initialized")
+    }
 
     private val firestore by lazy { FirebaseFirestore.getInstance() }
     private val auth by lazy { FirebaseAuth.getInstance() }

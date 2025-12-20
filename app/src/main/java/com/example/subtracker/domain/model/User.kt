@@ -5,5 +5,6 @@ data class User(
     val username: String = "",
     val familyCode: String = "",
     val familyName: String = "",
-    val role: String = "member"  // "admin" или "member"
+    val role: String = "member",  // "admin" или "member"
+    val avatarUrl: String = ""  // URL аватара в Firebase Storage
 )

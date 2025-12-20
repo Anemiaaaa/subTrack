@@ -13,6 +13,9 @@ interface PaymentDao {
     @Query("SELECT * FROM payments WHERE familyCode = :familyCode ORDER BY paidAt DESC")
     fun observeFamilyPayments(familyCode: String): Flow<List<PaymentEntity>>
 
+    @Query("SELECT * FROM payments WHERE familyCode = :familyCode ORDER BY paidAt DESC")
+    suspend fun getFamilyPaymentsOnce(familyCode: String): List<PaymentEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<PaymentEntity>)
 

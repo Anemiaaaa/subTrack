@@ -182,7 +182,8 @@ class SubscriptionRepositoryImpl(
         newName: String,
         newPrice: Double,
         newPeriodicity: String,
-        newIconResName: String
+        newIconResName: String,
+        newNextPaymentDate: Long
     ) {
         val now = System.currentTimeMillis()
 
@@ -190,7 +191,8 @@ class SubscriptionRepositoryImpl(
             name = newName,
             price = newPrice,
             periodicity = newPeriodicity,
-            iconResName = newIconResName
+            iconResName = newIconResName,
+            nextPaymentDate = newNextPaymentDate
         ).toEntity(updatedAt = now)
 
         db.subscriptions().upsertAll(listOf(updated))
@@ -200,6 +202,7 @@ class SubscriptionRepositoryImpl(
             put("price", newPrice)
             put("periodicity", newPeriodicity)
             put("iconResName", newIconResName)
+            put("nextPaymentDate", newNextPaymentDate)
         }.toString()
 
         enqueuePending(

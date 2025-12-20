@@ -1,15 +1,19 @@
 package com.example.subtracker.presentation.main
 
 import android.app.AlertDialog
+import android.app.DatePickerDialog
 import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.widget.*
+import com.google.android.material.textfield.TextInputEditText
 import com.example.subtracker.R
 import com.example.subtracker.ServiceItem
 import com.example.subtracker.buildServiceItems
 import com.example.subtracker.domain.model.Subscription
+import java.text.SimpleDateFormat
+import java.util.*
 
 /**
  * Управляет диалогами редактирования и действий с подписками
@@ -24,7 +28,8 @@ class SubscriptionDialogManager(
         newName: String,
         newPrice: Double,
         newPeriodicity: String,
-        newIconResName: String
+        newIconResName: String,
+        newNextPaymentDate: Long
     ) -> Unit
 ) {
     private val inflater = LayoutInflater.from(context)
@@ -62,11 +67,32 @@ class SubscriptionDialogManager(
         val nameInput = dialogView.findViewById<EditText>(R.id.editTextName)
         val priceInput = dialogView.findViewById<EditText>(R.id.editTextPrice)
         val periodSpinner = dialogView.findViewById<Spinner>(R.id.spinnerPeriodicity)
+        val dateInput = dialogView.findViewById<TextInputEditText>(R.id.editTextNextPaymentDate)
         val saveButton = dialogView.findViewById<Button>(R.id.buttonSave)
 
         val allServices = buildServiceItems()
         nameInput.setText(subscription.name)
         priceInput.setText(subscription.price.toString())
+        
+        // Настройка даты следующего платежа
+        val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = subscription.nextPaymentDate
+        }
+        dateInput.setText(dateFormat.format(calendar.time))
+        
+        dateInput.setOnClickListener {
+            DatePickerDialog(
+                context,
+                { _, year, month, dayOfMonth ->
+                    calendar.set(year, month, dayOfMonth)
+                    dateInput.setText(dateFormat.format(calendar.time))
+                },
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            ).show()
+        }
 
         val periodicityOptions = context.resources.getStringArray(R.array.periodicity_options).toList()
         val periodIndex = periodicityOptions.indexOfFirst { 
@@ -144,7 +170,6 @@ class SubscriptionDialogManager(
         })
 
         val dialog = AlertDialog.Builder(context)
-            .setTitle("Редактировать подписку")
             .setView(dialogView)
             .create()
         dialog.show()
@@ -155,8 +180,20 @@ class SubscriptionDialogManager(
             val newPeriod = periodSpinner.selectedItem?.toString() ?: subscription.periodicity
             val selected = currentItems.getOrNull(serviceSpinner.selectedItemPosition)
             val newIconResName = selected?.iconResName ?: subscription.iconResName
+            
+            // Получаем выбранную дату или используем текущую
+            val newNextPaymentDate = try {
+                val dateStr = dateInput.text.toString()
+                if (dateStr.isNotEmpty()) {
+                    dateFormat.parse(dateStr)?.time ?: subscription.nextPaymentDate
+                } else {
+                    subscription.nextPaymentDate
+                }
+            } catch (e: Exception) {
+                subscription.nextPaymentDate
+            }
 
-            onUpdate(subscription, newName, newPrice, newPeriod, newIconResName)
+            onUpdate(subscription, newName, newPrice, newPeriod, newIconResName, newNextPaymentDate)
             dialog.dismiss()
         }
     }

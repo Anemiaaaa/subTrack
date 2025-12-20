@@ -11,17 +11,12 @@ class LoginViewModelFactory(
     private val loginGuestUseCase: LoginGuestUseCase,
     private val recoverFamilyCodeUseCase: RecoverFamilyCodeUseCase
 ) : ViewModelProvider.Factory {
-
-    @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        require(modelClass.isAssignableFrom(LoginViewModel::class.java)) {
-            "Unknown ViewModel class: ${modelClass.name}"
-        }
-
+        require(modelClass.isAssignableFrom(LoginViewModel::class.java))
         return LoginViewModel(
-            joinFamilyUseCase = joinFamilyUseCase,
-            loginGuestUseCase = loginGuestUseCase,
-            recoverFamilyCodeUseCase = recoverFamilyCodeUseCase
+            joinFamilyUseCase,
+            loginGuestUseCase,
+            recoverFamilyCodeUseCase
         ) as T
     }
 }

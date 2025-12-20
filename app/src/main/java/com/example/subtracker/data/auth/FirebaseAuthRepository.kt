@@ -17,9 +17,25 @@ class FirebaseAuthRepository(
 
     override suspend fun ensureSignedInAnonymously(): String {
         val current = auth.currentUser
-        if (current != null && current.uid.isNotBlank()) return current.uid
+        if (current != null && current.uid.isNotBlank()) {
+            // Если пользователь уже аутентифицирован (в т.ч. через Google), используем его UID
+            return current.uid
+        }
+        // Только если нет пользователя, создаем анонимного
         val res = Tasks.await(auth.signInAnonymously())
         return res.user?.uid.orEmpty()
+    }
+    
+    /**
+     * Получает UID текущего аутентифицированного пользователя
+     * Если пользователь не аутентифицирован, выбрасывает исключение
+     */
+    private suspend fun getCurrentUserUid(): String {
+        val current = auth.currentUser
+        if (current == null || current.uid.isBlank()) {
+            error("Пользователь не аутентифицирован")
+        }
+        return current.uid
     }
 
     override suspend fun loginAsGuestAdmin(): AuthSession {
@@ -63,12 +79,89 @@ class FirebaseAuthRepository(
         requestedUsername: String,
         familyCode: String
     ): AuthSession {
-        val authUid = ensureSignedInAnonymously()
+        android.util.Log.d("FirebaseAuthRepository", "joinFamilyOrCreateMember: username=$requestedUsername, familyCode=$familyCode")
+        
+        // Используем текущего аутентифицированного пользователя (Google или анонимного)
+        val authUid = try {
+            getCurrentUserUid()
+        } catch (e: Exception) {
+            android.util.Log.d("FirebaseAuthRepository", "User not authenticated, creating anonymous user")
+            // Если пользователь не аутентифицирован, создаем анонимного
+            ensureSignedInAnonymously()
+        }
+        
+        android.util.Log.d("FirebaseAuthRepository", "Using authUid: $authUid")
         val code = familyCode.uppercase()
 
         val familyDoc = Tasks.await(db.collection("families").document(code).get())
         if (!familyDoc.exists()) error("Семья не найдена")
 
+        // Проверяем, есть ли уже пользователь с таким UID
+        val existingByUid = Tasks.await(
+            db.collection("users").document(authUid).get()
+        )
+        
+        if (existingByUid.exists()) {
+            val existingFamilyCode = existingByUid.getString("familyCode")
+            if (existingFamilyCode == code) {
+                // Пользователь уже в этой семье - проверяем, нужно ли обновить имя
+                val existingUsername = existingByUid.getString("username") ?: requestedUsername
+                if (existingUsername == requestedUsername) {
+                    // Имя не изменилось, возвращаем существующую сессию
+                    return AuthSession(
+                        userDocId = authUid,
+                        username = existingUsername,
+                        familyCode = code,
+                        role = existingByUid.getString("role") ?: "member",
+                        isGuest = false
+                    )
+                } else {
+                    // Имя изменилось - обновляем имя пользователя
+                    val finalName = resolveUsername(code, requestedUsername)
+                    Tasks.await(
+                        db.collection("users").document(authUid).update(
+                            mapOf("username" to finalName)
+                        )
+                    )
+                    return AuthSession(
+                        userDocId = authUid,
+                        username = finalName,
+                        familyCode = code,
+                        role = existingByUid.getString("role") ?: "member",
+                        isGuest = false
+                    )
+                }
+            } else {
+                // Пользователь существует, но в другой семье - переводим его в новую семью
+                val finalName = resolveUsername(code, requestedUsername)
+                val currentUser = auth.currentUser
+                val provider = when {
+                    currentUser != null && currentUser.providerData.any { it.providerId == "google.com" } -> "google"
+                    else -> "manual"
+                }
+                
+                Tasks.await(
+                    db.collection("users").document(authUid).update(
+                        mapOf(
+                            "username" to finalName,
+                            "familyCode" to code,
+                            "role" to "member", // При переходе в новую семью всегда member
+                            "provider" to provider
+                        )
+                    )
+                )
+                
+                return AuthSession(
+                    userDocId = authUid,
+                    username = finalName,
+                    familyCode = code,
+                    role = "member",
+                    isGuest = false
+                )
+            }
+        }
+
+        // Пользователь не существует по UID - проверяем, есть ли пользователь с таким именем в этой семье
         val existing = Tasks.await(
             db.collection("users")
                 .whereEqualTo("familyCode", code)
@@ -78,7 +171,43 @@ class FirebaseAuthRepository(
         )
 
         if (!existing.isEmpty) {
+            // Пользователь с таким именем уже существует в семье - входим под этим именем
             val doc = existing.documents.first()
+            val existingUid = doc.getString("uid") ?: doc.id
+            
+            android.util.Log.d("FirebaseAuthRepository", "User with username $requestedUsername already exists in family, using existing user: $existingUid")
+            
+            // Обновляем текущего пользователя (если нужно) или используем существующего
+            // Если это тот же UID - просто возвращаем сессию
+            if (doc.id == authUid || existingUid == authUid) {
+                return AuthSession(
+                    userDocId = doc.id,
+                    username = doc.getString("username") ?: requestedUsername,
+                    familyCode = code,
+                    role = doc.getString("role") ?: "member",
+                    isGuest = false
+                )
+            }
+            
+            // Если это другой UID, но пользователь хочет войти под существующим именем
+            // Обновляем запись существующего пользователя с новым UID (если нужно)
+            // Или просто возвращаем сессию существующего пользователя
+            val currentUser = auth.currentUser
+            val provider = when {
+                currentUser != null && currentUser.providerData.any { it.providerId == "google.com" } -> "google"
+                else -> "manual"
+            }
+            
+            // Обновляем UID существующего пользователя на текущий
+            Tasks.await(
+                db.collection("users").document(doc.id).update(
+                    mapOf(
+                        "uid" to authUid,
+                        "provider" to provider
+                    )
+                )
+            )
+            
             return AuthSession(
                 userDocId = doc.id,
                 username = doc.getString("username") ?: requestedUsername,
@@ -88,7 +217,15 @@ class FirebaseAuthRepository(
             )
         }
 
+        // Пользователя с таким именем нет - создаем нового
         val finalName = resolveUsername(code, requestedUsername)
+        
+        // Определяем провайдера: если это Google пользователь, ставим "google", иначе "manual"
+        val currentUser = auth.currentUser
+        val provider = when {
+            currentUser != null && currentUser.providerData.any { it.providerId == "google.com" } -> "google"
+            else -> "manual"
+        }
 
         Tasks.await(
             db.collection("users").document(authUid).set(
@@ -96,8 +233,8 @@ class FirebaseAuthRepository(
                     "uid" to authUid,
                     "username" to finalName,
                     "familyCode" to code,
-                    "role" to "member",
-                    "provider" to "manual"
+                    "role" to "member", // Всегда добавляем как обычного участника
+                    "provider" to provider
                 )
             )
         )

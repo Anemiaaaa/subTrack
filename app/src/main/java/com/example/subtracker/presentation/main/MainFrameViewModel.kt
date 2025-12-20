@@ -2,7 +2,10 @@ package com.example.subtracker.presentation.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.subtracker.app.di.AppGraph
+import com.example.subtracker.data.local.AppDatabase
 import com.example.subtracker.data.mapper.toUser
+import com.example.subtracker.data.mapper.toUserEntity
 import com.example.subtracker.domain.model.Subscription
 import com.example.subtracker.domain.model.User
 import com.example.subtracker.domain.repository.SubscriptionRepository
@@ -10,7 +13,9 @@ import com.example.subtracker.domain.usecase.DeleteSubscriptionUseCase
 import com.example.subtracker.domain.usecase.ObserveSubscriptionsUseCase
 import com.example.subtracker.domain.usecase.PaySubscriptionUseCase
 import com.example.subtracker.domain.usecase.UpdateSubscriptionUseCase
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -96,40 +101,63 @@ class MainFrameViewModel(
         val fc = familyCode
         if (fc.isBlank()) return
 
-        firestore.collection("families").document(fc).get()
-            .addOnSuccessListener { familyDoc ->
+        // Все операции выполняем в фоновом потоке
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                // Загружаем информацию о семье из Firestore
+                val familyDoc = com.google.android.gms.tasks.Tasks.await(
+                    firestore.collection("families").document(fc).get()
+                )
                 val familyName = familyDoc.getString("familyName") ?: "—"
 
-                firestore.collection("users")
-                    .whereEqualTo("familyCode", fc)
-                    .get()
-                    .addOnSuccessListener { snapshot ->
-                        val members = snapshot.documents.mapNotNull { doc ->
-                            doc.toUser()
-                        }
+                // Загружаем пользователей из Firestore
+                val snapshot = com.google.android.gms.tasks.Tasks.await(
+                    firestore.collection("users")
+                        .whereEqualTo("familyCode", fc)
+                        .get()
+                )
 
-                        // Обновим роль (на всякий случай)
-                        val me = members.find { it.id == sessionUserDocId }
-                            ?: members.find { it.username == sessionUsername }
-                        if (me != null && me.role.isNotBlank()) {
-                            _state.value = _state.value.copy(role = me.role)
-                        }
+                // Синхронизируем пользователей в Room
+                val db = AppDatabase.get(AppGraph.getAppContext())
+                val userEntities = snapshot.documents.mapNotNull { doc ->
+                    doc.toUserEntity()
+                }
+                db.users().upsertAll(userEntities)
 
-                        _events.tryEmit(
-                            MainFrameEvent.ShowFamilyInfo(
-                                familyName = familyName,
-                                familyCode = fc,
-                                members = members
-                            )
-                        )
-                    }
-                    .addOnFailureListener {
-                        _events.tryEmit(MainFrameEvent.Toast("Не удалось загрузить участников"))
-                    }
+                // Загружаем пользователей из Room (с локальными путями к аватарам)
+                val roomUserEntities = db.users().getFamilyUsers(fc)
+                android.util.Log.d("MainFrameViewModel", "Loaded ${roomUserEntities.size} users from Room")
+                val members = roomUserEntities.map { entity ->
+                    android.util.Log.d("MainFrameViewModel", "User: ${entity.username}, avatarUrl: ${entity.avatarUrl}")
+                    User(
+                        id = entity.id,
+                        username = entity.username,
+                        familyCode = entity.familyCode,
+                        familyName = entity.familyName,
+                        role = entity.role,
+                        avatarUrl = entity.avatarUrl // Локальный путь из Room
+                    )
+                }
+
+                // Обновим роль (на всякий случай)
+                val me = members.find { it.id == sessionUserDocId }
+                    ?: members.find { it.username == sessionUsername }
+                if (me != null && me.role.isNotBlank()) {
+                    _state.value = _state.value.copy(role = me.role)
+                }
+
+                _events.tryEmit(
+                    MainFrameEvent.ShowFamilyInfo(
+                        familyName = familyName,
+                        familyCode = fc,
+                        members = members
+                    )
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("MainFrameViewModel", "Ошибка загрузки информации о семье", e)
+                _events.tryEmit(MainFrameEvent.Toast("Не удалось загрузить информацию о семье: ${e.message}"))
             }
-            .addOnFailureListener {
-                _events.tryEmit(MainFrameEvent.Toast("Не удалось загрузить семью"))
-            }
+        }
     }
 
     private fun loadFamilyMembersAndRole() {
@@ -142,6 +170,19 @@ class MainFrameViewModel(
             .addOnSuccessListener { snapshot ->
                 val members = snapshot.documents.mapNotNull { doc ->
                     doc.toUser()
+                }
+
+                // Синхронизируем пользователей в Room
+                viewModelScope.launch {
+                    try {
+                        val db = AppDatabase.get(AppGraph.getAppContext())
+                        val userEntities = snapshot.documents.mapNotNull { doc ->
+                            doc.toUserEntity()
+                        }
+                        db.users().upsertAll(userEntities)
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainFrameViewModel", "Ошибка синхронизации пользователей в Room", e)
+                    }
                 }
 
                 val me = members.find { it.id == sessionUserDocId }
@@ -195,10 +236,11 @@ class MainFrameViewModel(
         newName: String,
         newPrice: Double,
         newPeriodicity: String,
-        newIconResName: String
+        newIconResName: String,
+        newNextPaymentDate: Long
     ) {
         viewModelScope.launch {
-            updateSubscriptionUseCase(sub, newName, newPrice, newPeriodicity, newIconResName)
+            updateSubscriptionUseCase(sub, newName, newPrice, newPeriodicity, newIconResName, newNextPaymentDate)
         }
     }
 }

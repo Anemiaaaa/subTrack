@@ -38,6 +38,7 @@ interface SubscriptionRepository {
         newName: String,
         newPrice: Double,
         newPeriodicity: String,
-        newIconResName: String
+        newIconResName: String,
+        newNextPaymentDate: Long
     )
 }
