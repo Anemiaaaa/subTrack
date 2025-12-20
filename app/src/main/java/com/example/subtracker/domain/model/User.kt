@@ -1,6 +1,6 @@
-package com.example.subtracker
+package com.example.subtracker.domain.model
 
-data class FirebaseUser(
+data class User(
     val id: String = "",
     val username: String = "",
     val familyCode: String = "",

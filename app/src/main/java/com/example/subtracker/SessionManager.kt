@@ -1,6 +1,7 @@
 package com.example.subtracker
 
 import android.content.Context
+import android.util.Log
 
 object SessionManager {
     private const val PREFS = "subtracker_session"
@@ -34,4 +35,15 @@ object SessionManager {
 
     fun role(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ROLE, "member") ?: "member"
+
+    fun dumpSession(context: Context, tag: String = "SESSION_DUMP") {
+        Log.d(tag, "===== SESSION DUMP =====")
+        Log.d(tag, "userDocId = ${userDocId(context)}")
+        Log.d(tag, "username  = ${username(context)}")
+        Log.d(tag, "familyCode= ${familyCode(context)}")
+        Log.d(tag, "role      = ${role(context)}")
+        Log.d(tag, "isGuest   = ${GuestSession.isActive(context)}")
+        Log.d(tag, "========================")
+    }
+
 }

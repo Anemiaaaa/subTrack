@@ -6,10 +6,8 @@ import android.content.Context
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.*
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.subtracker.data.local.AppDatabase
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
@@ -26,21 +24,17 @@ class SubscriptionReminderManager {
         private const val KEY_LAST_DATE_PREFIX = "last_notified_" // + subId + "_" + diffKey
 
         /**
-         * Планируем ежедневную проверку подписок.
-         * По умолчанию запускаем около 11:56 (как было), но можно поменять в calculateInitialDelay().
+         * Ежедневная проверка (как было). Работает офлайн — берёт данные из Room.
          */
         fun scheduleDailyReminders(context: Context) {
             val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.CONNECTED)
+                // сеть не нужна, но оставим хоть какие-то ограничения по батарее по желанию.
                 .build()
 
             val workRequest = PeriodicWorkRequestBuilder<SubscriptionReminderWorker>(1, TimeUnit.DAYS)
                 .setConstraints(constraints)
                 .setInitialDelay(calculateInitialDelay(), TimeUnit.MILLISECONDS)
-                .setBackoffCriteria(
-                    BackoffPolicy.EXPONENTIAL,
-                    30, TimeUnit.MINUTES
-                )
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
                 .build()
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
@@ -50,7 +44,6 @@ class SubscriptionReminderManager {
             )
         }
 
-        /** Показ уведомления */
         fun showNotification(context: Context, title: String, message: String, notificationId: Int) {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
@@ -74,7 +67,9 @@ class SubscriptionReminderManager {
             manager.notify(notificationId, notification)
         }
 
-        /** Вычисляем задержку до следующего запуска воркера (например, 11:56) */
+        /**
+         * Запуск каждый день около 11:56:10 (как у тебя было).
+         */
         private fun calculateInitialDelay(): Long {
             val now = Calendar.getInstance()
             val nextRun = Calendar.getInstance().apply {
@@ -83,11 +78,7 @@ class SubscriptionReminderManager {
                 set(Calendar.SECOND, 10)
                 set(Calendar.MILLISECOND, 0)
             }
-
-            if (nextRun.before(now)) {
-                nextRun.add(Calendar.DAY_OF_YEAR, 1)
-            }
-
+            if (nextRun.before(now)) nextRun.add(Calendar.DAY_OF_YEAR, 1)
             return nextRun.timeInMillis - now.timeInMillis
         }
 
@@ -114,77 +105,54 @@ class SubscriptionReminderManager {
         }
 
         private fun notificationIdFor(subId: String, diffKey: Int): Int {
-            // стабильный id, чтобы не спамить кучей уведомлений
-            return (subId.hashCode() * 31 + diffKey).toInt()
+            return (subId.hashCode() * 31 + diffKey)
         }
 
-        /**
-         * Сколько дней до даты списания.
-         * Если осталось меньше суток -> 0, от 1 до <2 суток -> 1, и т.д.
-         */
         private fun daysUntil(nowMs: Long, targetMs: Long): Int {
             val diff = targetMs - nowMs
             if (diff <= 0L) return 0
-            val days = floor(diff.toDouble() / TimeUnit.DAYS.toMillis(1).toDouble()).toInt()
-            return days
+            return floor(diff.toDouble() / TimeUnit.DAYS.toMillis(1).toDouble()).toInt()
         }
     }
 
     /**
-     * Worker для проверки подписок и отправки уведомлений из Firestore.
-     * Логика:
-     * 1) Берём текущего FirebaseAuth uid.
-     * 2) Читаем users/{uid} -> familyCode + role.
-     * 3) Грузим subscriptions только по familyCode.
-     * 4) Если роль не admin -> фильтруем по ownerUid == uid.
-     * 5) Уведомления: за 5/3/1/0 дней.
+     * ✅ OFFLINE-FIRST:
+     * - читает подписки из Room
+     * - не ходит в Firestore
+     * - работает без сети
      */
     class SubscriptionReminderWorker(
         context: Context,
         workerParams: WorkerParameters
     ) : CoroutineWorker(context, workerParams) {
 
-        private val db = FirebaseFirestore.getInstance()
-
         override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
             try {
-                val uid = FirebaseAuth.getInstance().currentUser?.uid
-                    ?: return@withContext Result.success() // нет юзера -> нечего проверять
+                val familyCode = SessionManager.familyCode(applicationContext)
+                val userDocId = SessionManager.userDocId(applicationContext)
+                val sessionUsername = SessionManager.username(applicationContext)
+                val role = SessionManager.role(applicationContext).ifBlank { "member" }
 
-                val userDoc = db.collection("users").document(uid).get().await()
-                if (!userDoc.exists()) {
+                if (familyCode.isBlank() || userDocId.isBlank()) {
                     return@withContext Result.success()
                 }
 
-                val familyCode = userDoc.getString("familyCode")?.trim().orEmpty()
-                val role = userDoc.getString("role")?.trim().orEmpty().ifEmpty { "member" }
-
-                if (familyCode.isEmpty()) {
-                    return@withContext Result.success()
-                }
-
-                val snapshot = db.collection("subscriptions")
-                    .whereEqualTo("familyCode", familyCode)
-                    .get()
-                    .await()
+                val db = AppDatabase.get(applicationContext)
+                val subs = db.subscriptions().getFamilyOnce(familyCode)
 
                 val now = System.currentTimeMillis()
 
-                for (doc in snapshot.documents) {
-
-                    // если не админ — показываем только свои подписки
+                for (s in subs) {
+                    // ✅ Ограничение для member:
+                    // ownerUid в локалке может быть пустым в некоторых офлайн-апдейтах,
+                    // поэтому делаем fallback на ownerUsername.
                     if (role != "admin") {
-                        val ownerUid = doc.getString("ownerUid")
-                        if (ownerUid != uid) continue
+                        val isMineByUid = s.ownerUid.isNotBlank() && s.ownerUid == userDocId
+                        val isMineByName = s.ownerUid.isBlank() && s.ownerUsername == sessionUsername
+                        if (!isMineByUid && !isMineByName) continue
                     }
 
-                    val subId = doc.id
-                    val name = doc.getString("name") ?: continue
-                    val price = doc.getDouble("price") ?: continue
-                    val nextPaymentDate = doc.getLong("nextPaymentDate") ?: continue
-
-                    val diffDays = daysUntil(now, nextPaymentDate)
-
+                    val diffDays = daysUntil(now, s.nextPaymentDate)
                     val diffKey = when (diffDays) {
                         5 -> 5
                         3 -> 3
@@ -192,17 +160,14 @@ class SubscriptionReminderManager {
                         0 -> 0
                         else -> -1
                     }
-
                     if (diffKey == -1) continue
-
-                    // защита от дублей (один раз в день на конкретный threshold)
-                    if (!shouldNotifyToday(applicationContext, subId, diffKey)) continue
+                    if (!shouldNotifyToday(applicationContext, s.id, diffKey)) continue
 
                     val message = when (diffKey) {
-                        5 -> "Через 5 дней спишется ${price}₽ за $name"
-                        3 -> "Через 3 дня спишется ${price}₽ за $name"
-                        1 -> "Завтра спишется ${price}₽ за $name"
-                        0 -> "Сегодня спишется ${price}₽ за $name"
+                        5 -> "Через 5 дней спишется ${s.price}₽ за ${s.name}"
+                        3 -> "Через 3 дня спишется ${s.price}₽ за ${s.name}"
+                        1 -> "Завтра спишется ${s.price}₽ за ${s.name}"
+                        0 -> "Сегодня спишется ${s.price}₽ за ${s.name}"
                         else -> null
                     } ?: continue
 
@@ -210,10 +175,9 @@ class SubscriptionReminderManager {
                         applicationContext,
                         "Напоминание о подписке",
                         message,
-                        notificationIdFor(subId, diffKey)
+                        notificationIdFor(s.id, diffKey)
                     )
-
-                    markNotifiedToday(applicationContext, subId, diffKey)
+                    markNotifiedToday(applicationContext, s.id, diffKey)
                 }
 
                 Result.success()
