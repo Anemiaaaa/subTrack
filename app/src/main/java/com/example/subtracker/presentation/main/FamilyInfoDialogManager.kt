@@ -98,7 +98,13 @@ class FamilyInfoDialogManager(
     }
 
     private fun createMemberItem(user: User): android.view.View {
-        val item = inflater.inflate(R.layout.item_family_member, null)
+        val isDark = ThemeManager.getMode(context) == ThemeManager.MODE_DARK
+        val layoutRes = if (isDark) {
+            R.layout.item_family_member_dark
+        } else {
+            R.layout.item_family_member
+        }
+        val item = inflater.inflate(layoutRes, null)
 
         val nameView = item.findViewById<TextView>(R.id.memberName)
         val letterView = item.findViewById<TextView>(R.id.memberLetter)
